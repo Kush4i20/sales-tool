@@ -1,0 +1,53 @@
+{
+  "rules": {
+    "users": {
+      "$uid": {
+        ".read": "$uid === auth.uid",
+        ".write": "$uid === auth.uid",
+        "role": {
+          ".write": "root.child('users').child(auth.uid).child('role').val() === 'admin'"
+        },
+        "orgId": {
+          ".write": "root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child($uid).child('orgId').val() === null"
+        }
+      }
+    },
+    "orgs": {
+      "$orgId": {
+        ".read": "auth != null && root.child('users').child(auth.uid).child('orgId').val() === $orgId",
+        ".write": "auth != null && root.child('users').child(auth.uid).child('orgId').val() === $orgId && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'manager')",
+        "contacts": {
+          ".write": "auth != null && root.child('users').child(auth.uid).child('orgId').val() === $orgId"
+        },
+        "calls": {
+          ".write": "auth != null && root.child('users').child(auth.uid).child('orgId').val() === $orgId"
+        },
+        "tasks": {
+          ".write": "auth != null && root.child('users').child(auth.uid).child('orgId').val() === $orgId"
+        },
+        "liSnapshots": {
+          ".write": "auth != null && root.child('users').child(auth.uid).child('orgId').val() === $orgId"
+        },
+        "liPosts": {
+          ".write": "auth != null && root.child('users').child(auth.uid).child('orgId').val() === $orgId"
+        },
+        "weeklyGoals": {
+          ".write": "auth != null && root.child('users').child(auth.uid).child('orgId').val() === $orgId"
+        },
+        "weeklyChecklist": {
+          ".write": "auth != null && root.child('users').child(auth.uid).child('orgId').val() === $orgId"
+        },
+        "matkon": {
+          "projects": {
+            "$projectId": {
+              ".write": "auth != null && root.child('users').child(auth.uid).child('orgId').val() === $orgId"
+            }
+          },
+          "checklistTemplate": {
+            ".write": "auth != null && root.child('users').child(auth.uid).child('orgId').val() === $orgId && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'manager')"
+          }
+        }
+      }
+    }
+  }
+}

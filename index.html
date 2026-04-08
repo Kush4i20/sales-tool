@@ -1,0 +1,2056 @@
+<!doctype html>
+<html lang="de-CH">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Power Hour – Kontakt Manager</title>
+  <link rel="stylesheet" href="css/base.css">
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+
+  <!-- LOGIN -->
+  <div id="loginOverlay" class="login-overlay">
+    <div class="login-card">
+      <h1 class="login-title">📞 Power Hour</h1>
+      <p class="login-subtitle">Kontakt Manager</p>
+      
+      <div id="loginError" class="login-error"></div>
+
+      <input type="email" id="loginEmail" class="login-input" placeholder="Email" autocomplete="email">
+      <input type="password" id="loginPassword" class="login-input" placeholder="Passwort" autocomplete="current-password">
+
+      <button id="btnLogin" class="login-button">🔓 Anmelden</button>
+
+      <div class="hint" style="margin-top: 20px">
+        ℹ️ Nutze deine Firebase Email & Passwort
+      </div>
+    </div>
+  </div>
+
+  <button class="sidebar-toggle" id="btnSidebarToggle">☰</button>
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+  <div class="layout" style="display: none;" id="appLayout">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-brand">⚡ Power Hour</div>
+      <nav class="sidebar-nav">
+        <button data-view="kontakte" class="nav-item active"><span class="nav-icon">👤</span> Kontakte</button>
+        <button data-view="session" class="nav-item"><span class="nav-icon">📞</span> Session</button>
+        <button data-view="crm" class="nav-item"><span class="nav-icon">🏢</span> CRM</button>
+        <button data-view="immoradar" class="nav-item"><span class="nav-icon">📡</span> ImmoRadar</button>
+        <button data-view="analytics" class="nav-item"><span class="nav-icon">📊</span> Analytics</button>
+        <button data-view="aufgaben" class="nav-item"><span class="nav-icon">📋</span> Aufgaben</button>
+        <button data-view="settings" class="nav-item"><span class="nav-icon">⚙️</span> Einstellungen</button>
+        <button data-view="vrundgang" class="nav-item"><span class="nav-icon">🎥</span> Virt. Rundgang</button>
+        <button data-view="matkon" class="nav-item"><span class="nav-icon">🐾</span> MatKon</button>
+      </nav>
+      <div id="memberSwitcher" style="padding: 10px 12px; border-top: 1px solid var(--line);">
+        <div style="font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 8px;">Ansicht als:</div>
+        <div id="memberSwitcherBtns" style="display: flex; flex-wrap: wrap; gap: 6px;"></div>
+      </div>
+
+      <div class="sidebar-footer">
+        <div id="currentRoleBadge" style="font-size: 11px; opacity: 0.85; text-align: center; padding: 4px 8px; border: 1px solid rgba(255,255,255,.2); border-radius: 999px;">Role: Admin</div>
+        <button id="btnThemeToggle">🌙 Theme</button>
+        <button id="btnLogout">Logout</button>
+      </div>
+    </aside>
+    <main class="main-content" id="app">
+      <div id="kontakte" class="section active">
+        <div class="main-header">
+          <div>
+            <div class="header-title">Kontakte</div>
+            <div class="header-sub" id="kontakteStats">0 Kontakte · 0 heute anrufen · 0 Followups</div>
+          </div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button class="btn" id="btnOpenTagManager">🏷️ Tags</button>
+            <button class="btn primary" id="btnAddContact">+ Neu</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-content">
+            <div style="display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: 12px;">
+              <div>
+                <label class="label">Suche <span class="shortcut-hint">Ctrl + Alt + G</span></label>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                  <input type="text" id="dashboardSearch" class="input-field" placeholder="Name, Firma, Telefon..." style="margin: 0;">
+                  <button class="btn" id="btnClearDashboardSearch" style="min-width: 40px; display: none;">✕</button>
+                </div>
+              </div>
+              <div>
+                <label class="label">Status</label>
+                <div class="status-filter-dropdown-container">
+                  <button class="status-filter-dropdown-btn" id="btnStatusFilterDropdown" data-status="all">
+                    <span id="statusFilterLabel">Alle</span>
+                    <span style="margin-left: auto; font-size: 10px;">▼</span>
+                  </button>
+                  <div class="status-filter-menu" id="statusFilterMenu">
+                    <div class="status-filter-option" data-status="all">Alle</div>
+                    <div class="status-filter-option" data-status="new">🆕 Neu</div>
+                    <div class="status-filter-option" data-status="lioutboundtoday">🔗 LIO Today</div>
+                    <div class="status-filter-option" data-status="lioutboundfollowup">🔁 LIO Followup</div>
+                    <div class="status-filter-option" data-status="limailgesendet">✉️ LI-Mailgesendet</div>
+                    <div class="status-filter-option" data-status="called">☎️ Angerufen</div>
+                    <div class="status-filter-option" data-status="inprogress">⏳ In Bearbeitung</div>
+                    <div class="status-filter-option" data-status="preselected">✅ Vorselektiert</div>
+                    <div class="status-filter-option" data-status="mailsend">📧 Mail senden</div>
+                    <div class="status-filter-option" data-status="mailtonewcontact">📨 Mail an neue Kontaktperson</div>
+                    <div class="status-filter-option" data-status="response">💬 Antwort</div>
+                    <div class="status-filter-option" data-status="followup">🔄 Followup</div>
+                    <div class="status-filter-option" data-status="callstoday">📞 Heute anrufen</div>
+                    <div class="status-filter-option" data-status="followuptoday">🔔 Followup Today</div>
+                    <div class="status-filter-option" data-status="notreached">📵 Nicht erreicht</div>
+                    <div class="status-filter-option" data-status="nointerest">🚫 Kein Interesse</div>
+                    <div class="status-filter-option" data-status="nokeinbedarf">💤 Aktuell kein Bedarf</div>
+                    <div class="status-filter-option" data-status="won">⭐ Gewonnen</div>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <label class="label">Tags</label>
+                <div class="tag-filter-container">
+                  <button class="tag-filter-dropdown-btn" id="btnTagFilter">
+                    <span id="tagFilterLabel">Alle Tags</span><span id="tagFilterCount"></span>
+                    <span style="margin-left: auto; font-size: 10px;">▼</span>
+                  </button>
+                  <div class="tag-filter-menu" id="tagFilterMenu">
+                    <div class="tag-filter-option" data-tag="all" style="font-weight: 600;">Alle Tags</div>
+                    <div id="tagFilterOptions"></div>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <label class="label">PLZ</label>
+                <div style="display: flex; gap: 8px;">
+                  <input type="text" id="dashboardPLZRange" class="input-field" placeholder="8000-8100" style="margin: 0;">
+                  <button class="btn" id="btnClearPLZRange" style="min-width: 40px; display: none;">✕</button>
+                </div>
+              </div>
+            </div>
+
+            <div style="display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;">
+              <select id="sortBy" class="input-field" style="width: 220px; margin: 0;">
+                <option value="name">Name (A-Z)</option>
+                <option value="company">Firma (A-Z)</option>
+                <option value="location">Ort (A-Z)</option>
+                <option value="phone">Telefon (A-Z)</option>
+                <option value="email">E-Mail (A-Z)</option>
+                <option value="status">Status</option>
+                <option value="phase">Phase</option>
+                <option value="rating">Rating (Sterne)</option>
+                <option value="newest">Neu eingegeben</option>
+                <option value="followupdue">Fälligkeitsdatum</option>
+              </select>
+              <button class="btn" id="btnToggleSortOrder">↑ Sortierung</button>
+              <div class="view-toggle">
+                <button class="btn active" id="btnDashboardTileView">Kachel</button>
+                <button class="btn" id="btnDashboardListView">Liste</button>
+              </div>
+              <button class="btn" id="btnResetAllFilters">🔄 Filter zurücksetzen</button>
+            </div>
+
+            <div class="filter-tabs" style="margin-top: 14px;">
+              <button class="filter-tab active" data-quick-filter="all">Alle</button>
+              <button class="filter-tab" data-quick-filter="callstoday">📞 Heute anrufen</button>
+              <button class="filter-tab" data-quick-filter="followuptoday" style="color: #ea580c;">🔔 Followup Today</button>
+              <button class="filter-tab" data-quick-filter="followup">🔄 Im Followup</button>
+              <button class="filter-tab" data-quick-filter="linkedin">LinkedIn</button>
+              <button class="filter-tab" data-quick-filter="won">Gewonnen</button>
+              <button class="filter-tab" data-quick-filter="vrundgang">🎥 Virt. Rundgang</button>
+            </div>
+
+            <div class="contacts-grid" id="dashboardGrid">
+              <div style="grid-column: 1/-1; padding: 20px; text-align: center; color: var(--muted)">Keine Kontakte geladen</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="batch-bar" id="batchBar">
+          <span id="selectedCount">0 ausgewählt</span>
+          <button class="btn" id="btnSelectAll">Alle markieren</button>
+          <button class="btn" id="btnClearSelection">Auswahl löschen</button>
+          <button class="btn good" id="btnMarkCallsToday">Heute anrufen</button>
+          <button class="btn" id="btnMarkFollowupToday" style="border-color: #ea580c; color: #ea580c;">🔔 Followup Today</button>
+          <button class="btn" id="btnMarkOutreach">🔗 LIO Today</button>
+          <select id="batchStatusSelect" class="input-field" style="width: 180px; margin: 0;">
+            <option value="">Status setzen...</option>
+            <option value="new">🆕 Neu</option>
+            <option value="lioutboundtoday">🔗 LIO Today</option>
+            <option value="lioutboundfollowup">🔁 LIO Followup</option>
+            <option value="limailgesendet">✉️ LI-Mailgesendet</option>
+            <option value="called">☎️ Angerufen</option>
+            <option value="inprogress">⏳ In Bearbeitung</option>
+            <option value="preselected">✅ Vorselektiert</option>
+            <option value="mailsend">📧 Mail senden</option>
+            <option value="mailtonewcontact">📨 Mail an neue Kontaktperson</option>
+            <option value="response">💬 Antwort</option>
+            <option value="followup">🔄 Followup</option>
+            <option value="callstoday">📞 Heute anrufen</option>
+            <option value="followuptoday">🔔 Followup Today</option>
+            <option value="notreached">📵 Nicht erreicht</option>
+            <option value="nointerest">🚫 Kein Interesse</option>
+            <option value="nokeinbedarf">💤 Aktuell kein Bedarf</option>
+            <option value="won">⭐ Gewonnen</option>
+          </select>
+          <button class="btn" id="btnBatchSetStatus">Status setzen</button>
+          <select id="batchMemberSelect" class="input-field" style="width: 180px; margin: 0; display: none;">
+            <option value="">Nicht zugewiesen</option>
+          </select>
+          <button class="btn" id="btnBatchAssign">👤 Zuweisen</button>
+          <button class="btn" id="btnBatchVrSession" style="border-color:#0ea5e9; color:#0ea5e9;">🎥 VR-Session</button>
+        </div>
+      </div>
+
+      <div id="immoradar" class="section">
+        <div class="main-header">
+          <div>
+            <div class="header-title">ImmoRadar</div>
+            <div class="header-sub" id="irSubtitle">LinkedIn Outreach & Lead-Priorisierung auf Basis deiner bestehenden Kontakte</div>
+          </div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+            <div class="ir-api-pill" id="irApiStatus">
+              <span class="ir-api-dot" id="irApiDot"></span>
+              <span id="irApiText">API nicht konfiguriert</span>
+            </div>
+            <button class="btn" id="btnIrApiKey">🔐 API Key</button>
+            <button class="btn" id="btnIrRefresh">🔄 Aktualisieren</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-content">
+            <div class="ir-kpi-grid">
+              <div class="ir-kpi"><div class="ir-kpi-value" id="irKpiTotal">0</div><div class="ir-kpi-label">Gesamt</div></div>
+              <div class="ir-kpi"><div class="ir-kpi-value" id="irKpiHot">0</div><div class="ir-kpi-label">Hot</div></div>
+              <div class="ir-kpi"><div class="ir-kpi-value" id="irKpiWarm">0</div><div class="ir-kpi-label">Warm</div></div>
+              <div class="ir-kpi"><div class="ir-kpi-value" id="irKpiCool">0</div><div class="ir-kpi-label">Cool</div></div>
+              <div class="ir-kpi"><div class="ir-kpi-value" id="irKpiLinkedin">0</div><div class="ir-kpi-label">LinkedIn</div></div>
+              <div class="ir-kpi"><div class="ir-kpi-value" id="irKpiWon">0</div><div class="ir-kpi-label">Won</div></div>
+            </div>
+
+            <div class="ir-segments" id="irSegments">
+              <button class="ir-segment-btn active" data-ir-segment="all">Alle</button>
+              <button class="ir-segment-btn" data-ir-segment="hot">🔥 Hot</button>
+              <button class="ir-segment-btn" data-ir-segment="warm">🟠 Warm</button>
+              <button class="ir-segment-btn" data-ir-segment="cool">🔵 Cool</button>
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; margin-bottom:8px;">
+              <button class="btn" id="btnIrBulkLio" style="border-color:#3b82f6; color:#3b82f6;">🔗 Alle gefilterten als LIO Today</button>
+            </div>
+
+            <div style="display:grid; grid-template-columns:1.2fr 1fr 1fr 1fr 1fr; gap:10px;">
+              <input id="irSearch" type="text" class="input-field" placeholder="Suche: Name, Firma, Ort..." style="margin:0;">
+              <select id="irStatus" class="input-field" style="margin:0;">
+                <option value="all">Alle Status</option>
+                <option value="new">Neu</option>
+                <option value="lioutboundtoday">LIO Today</option>
+                <option value="lioutboundfollowup">LIO Followup</option>
+                <option value="response">Antwort</option>
+                <option value="followup">Followup</option>
+                <option value="won">Gewonnen</option>
+              </select>
+              <select id="irSortBy" class="input-field" style="margin:0;">
+                <option value="score">Score</option>
+                <option value="name">Name</option>
+                <option value="company">Firma</option>
+                <option value="lastTouch">Last Touch</option>
+              </select>
+              <select id="irPageSize" class="input-field" style="margin:0;">
+                <option value="12">12 / Seite</option>
+                <option value="25">25 / Seite</option>
+                <option value="50">50 / Seite</option>
+              </select>
+              <button class="btn" id="irSortDir">↓ Absteigend</button>
+            </div>
+
+            <div class="ir-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Kontakt</th>
+                    <th>Score</th>
+                    <th>Segment</th>
+                    <th>Strength</th>
+                    <th>Status</th>
+                    <th>Pipeline</th>
+                    <th>Last Touch</th>
+                    <th>Aktion</th>
+                  </tr>
+                </thead>
+                <tbody id="irTableBody">
+                  <tr><td colspan="8" style="text-align:center; color:var(--muted); padding:16px;">Keine Daten</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div id="irPagination" style="display:flex; justify-content:center; align-items:center; gap:6px; margin-top:10px;"></div>
+
+            <div class="ir-pipeline" id="irPipeline"></div>
+
+            <div class="ir-charts-grid">
+              <div class="ir-chart-card">
+                <div class="ir-chart-title">Segment-Verteilung</div>
+                <div id="irChartSegments" class="ir-bars"></div>
+              </div>
+              <div class="ir-chart-card">
+                <div class="ir-chart-title">Pipeline-Verteilung</div>
+                <div id="irChartPipeline" class="ir-bars"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="session" class="section">
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h3 class="card-title">Session</h3>
+              <p class="card-sub">Ein Modus für Calls, Mails und LinkedIn</p>
+            </div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <button class="btn" data-session-mode="call">📞 Anruf</button>
+              <button class="btn" data-session-mode="mail">✉️ Mail</button>
+              <button class="btn" data-session-mode="outreach">💬 LinkedIn</button>
+              <button class="btn" data-session-mode="followup" style="border-color: #ea580c; color: #ea580c;">🔄 Followup</button>
+            </div>
+          </div>
+          <div class="card-content">
+            <div class="two-col">
+              <div>
+                <label class="label">Datum</label>
+                <input type="date" id="sessionDate" class="input-field">
+                <button class="btn primary" id="btnStartUnifiedSession" style="width: 100%; margin-top: 8px">▶ Session starten</button>
+              </div>
+              <div>
+                <label class="label">Aktuelle Session</label>
+                <div style="padding: 10px; background: var(--accent-soft); border-radius: 10px; font-size: 12px">
+                  <div id="sessionInfo" style="color: var(--muted)">Keine Session aktiv</div>
+                </div>
+              </div>
+            </div>
+
+            <div id="activeSession" style="display: none; margin-top: 20px;">
+              <div class="contact-card" style="margin-bottom: 12px;">
+                <div>
+                  <div class="contact-name" id="sessionContactName">–</div>
+                  <div class="contact-company" id="sessionContactCompany">–</div>
+                </div>
+                <div class="contact-meta" id="sessionContactDetails">–</div>
+                <div>
+                  <span class="status-badge" id="sessionContactStatus">–</span>
+                </div>
+                <button class="btn" id="btnEditSessionContact">Kontakt bearbeiten</button>
+              </div>
+
+              <div id="sessionContactPerson" style="margin-bottom: 12px; display: none;">
+                <div class="card" style="margin-bottom: 0;">
+                  <div class="card-content">
+                    <div class="label">Ansprechperson in der Session</div>
+                    <div style="display: flex; gap: 8px; margin-bottom: 10px; align-items: end; flex-wrap: wrap;">
+                      <div style="flex: 1; min-width: 220px;">
+                        <label class="label">Kontaktperson</label>
+                        <select id="sessionPersonSelect" class="input-field"></select>
+                      </div>
+                      <button class="btn" id="btnSessionNewPerson" type="button">+ Neue Kontaktperson erfassen</button>
+                    </div>
+                    <div id="sessionPersonFields">
+                    <div class="two-col">
+                      <div>
+                        <label class="label">Vorname</label>
+                        <input type="text" id="sessionPersonFirst" class="input-field" placeholder="Vorname">
+                      </div>
+                      <div>
+                        <label class="label">Nachname</label>
+                        <input type="text" id="sessionPersonLast" class="input-field" placeholder="Nachname">
+                      </div>
+                    </div>
+                    <div class="two-col">
+                      <div>
+                        <label class="label">Telefon</label>
+                        <input type="tel" id="sessionPersonPhone" class="input-field" placeholder="+41 ...">
+                      </div>
+                      <div>
+                        <label class="label">Email</label>
+                        <input type="email" id="sessionPersonEmail" class="input-field" placeholder="mail@firma.ch">
+                      </div>
+                    </div>
+                    <label class="label">Rolle</label>
+                    <input type="text" id="sessionPersonRole" class="input-field" placeholder="z.B. Geschaeftsfuehrer">
+                    </div>
+                    <div class="hint">Session-Notizen werden auf Firmenebene gespeichert und mit der ausgewaehlten Kontaktperson gelabelt.</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card" style="margin-bottom: 0;">
+                <div class="card-content">
+                  <div class="label">Ergebnis</div>
+                  <div id="sessionResultButtons" style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px;"></div>
+
+                  <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                    <span class="label" style="margin: 0;">Interesse</span>
+                    <div class="star-rating" id="sessionStarRating">
+                      <span class="star" data-star="1">★</span>
+                      <span class="star" data-star="2">★</span>
+                      <span class="star" data-star="3">★</span>
+                      <span class="star" data-star="4">★</span>
+                      <span class="star" data-star="5">★</span>
+                    </div>
+                    <span id="sessionStarLabel" style="font-size: 11px; color: var(--muted);">–</span>
+                    <input type="hidden" id="sessionRating" value="0">
+                  </div>
+
+                  <label class="label">Notizen</label>
+                  <textarea id="sessionNotes" class="input-field" placeholder="Notizen..." style="min-height: 90px;"></textarea>
+
+                  <div style="display: flex; gap: 8px; margin-top: 8px;">
+                    <button class="btn good" id="btnSaveAndNext">✅ Speichern & Nächster</button>
+                    <button class="btn" id="btnSkipContact">⏭ Überspringen</button>
+                    <button class="btn" id="btnSessionOpenMail" style="display:none;">✉️ Mail öffnen</button>
+                  </div>
+                </div>
+              </div>
+
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 12px; font-size: 12px; color: var(--muted); gap: 6px; flex-wrap: wrap;">
+                <button class="btn" id="btnSessionPrev">← Zurück</button>
+                <span id="sessionProgress" style="white-space: nowrap;">1 / 10</span>
+                <div style="display:flex; align-items:center; gap:4px;">
+                  <label style="font-size:11px; color:var(--muted); white-space:nowrap;"># Sprung:</label>
+                  <input type="number" id="sessionJumpInput" min="1" class="input-field"
+                    style="width:64px; padding:3px 6px; font-size:12px; text-align:center;"
+                    placeholder="Nr.">
+                  <button class="btn" id="btnSessionJump" style="padding:4px 10px; font-size:12px;">→ Go</button>
+                </div>
+                <button class="btn" id="btnSessionNext">Weiter →</button>
+                <button class="btn" id="btnEndSession">🏁 Beenden</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h3 class="card-title">Heutige Sessions</h3>
+              <div class="card-sub" id="sessionTodaySummary">Total abgeschlossen: 0 · Angerufen: 0 · Mail wollen: 0 · Nicht erreicht: 0 · Vorselektiert: 0 · Kein Interesse: 0 · Gewonnen: 0 · Antwort: 0</div>
+            </div>
+          </div>
+          <div class="card-content" style="padding-bottom: 4px;">
+            <div class="filter-tabs" style="margin-bottom: 10px;">
+              <button class="filter-tab active" data-log-filter="all">Alle</button>
+              <button class="filter-tab" data-log-filter="call">📞 Anruf</button>
+              <button class="filter-tab" data-log-filter="mail">✉️ Mail</button>
+              <button class="filter-tab" data-log-filter="outreach">💬 LinkedIn</button>
+              <button class="filter-tab" data-log-filter="followup">🔄 Followup</button>
+            </div>
+          </div>
+          <div class="card-content" style="overflow-x: auto;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Firma</th>
+                  <th>Status</th>
+                  <th>Zeit</th>
+                  <th>Interesse</th>
+                </tr>
+              </thead>
+              <tbody id="sessionLogTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div id="crm" class="section">
+        <div class="main-header">
+          <div>
+            <div class="header-title">CRM</div>
+            <div class="header-sub">Firmen und Ansprechpartner sauber verwalten</div>
+          </div>
+        </div>
+
+        <div class="two-col">
+          <div class="card">
+            <div class="card-head">
+              <h3 class="card-title">Neue Firma + Ansprechpartner</h3>
+            </div>
+            <div class="card-content">
+              <label class="label">Firma</label>
+              <div class="suggestion-box">
+                <input type="text" id="crmCompanyName" class="input-field" placeholder="Firma">
+                <div id="crmCompanySuggestions" class="suggestion-list"></div>
+              </div>
+              <div id="crmCompanyHint" class="hint"></div>
+
+              <div class="two-col">
+                <div>
+                  <label class="label">Branche</label>
+                  <input type="text" id="crmCompanyIndustry" class="input-field">
+                </div>
+                <div>
+                  <label class="label">Standort</label>
+                  <input type="text" id="crmCompanyLocation" class="input-field">
+                </div>
+              </div>
+              <label class="label">Website</label>
+              <input type="url" id="crmCompanyWebsite" class="input-field" placeholder="https://...">
+
+              <div class="two-col">
+                <div>
+                  <label class="label">Strasse</label>
+                  <input type="text" id="crmCompanyStreet" class="input-field">
+                </div>
+                <div>
+                  <label class="label">PLZ</label>
+                  <input type="text" id="crmCompanyPostal" class="input-field">
+                </div>
+              </div>
+              <label class="label">Ort</label>
+              <input type="text" id="crmCompanyCity" class="input-field">
+
+              <div class="divider"></div>
+
+              <div class="label">Ansprechpartner</div>
+              <div class="two-col">
+                <div>
+                  <label class="label">Vorname</label>
+                  <input type="text" id="crmContactFirst" class="input-field">
+                </div>
+                <div>
+                  <label class="label">Nachname</label>
+                  <input type="text" id="crmContactLast" class="input-field">
+                </div>
+              </div>
+              <div class="two-col">
+                <div>
+                  <label class="label">Telefon</label>
+                  <input type="tel" id="crmContactPhone" class="input-field" placeholder="+41 ...">
+                </div>
+                <div>
+                  <label class="label">Email</label>
+                  <input type="email" id="crmContactEmail" class="input-field" placeholder="mail@firma.ch">
+                </div>
+              </div>
+              <label class="label">LinkedIn</label>
+              <input type="url" id="crmContactLinkedIn" class="input-field" placeholder="https://linkedin.com/in/...">
+              <label class="label">Rolle</label>
+              <input type="text" id="crmContactRole" class="input-field" placeholder="z.B. Geschäftsführer">
+
+              <button class="btn good" id="btnCrmSaveAddress" style="width: 100%; margin-top: 8px;">➕ Firma & Kontakt speichern</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head" style="justify-content: space-between;">
+              <div>
+                <h3 class="card-title">Firmen</h3>
+                <div class="card-sub" id="crmCompanyCount">0 Firmen</div>
+              </div>
+              <input type="text" id="crmSearch" class="input-field" placeholder="Firma suchen..." style="max-width: 220px; margin: 0;">
+            </div>
+            <div class="card-content" style="overflow-x: auto;">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Firma</th>
+                    <th>Branche</th>
+                    <th>Standort</th>
+                    <th>Kontakte</th>
+                  </tr>
+                </thead>
+                <tbody id="crmCompaniesBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h3 class="card-title" id="crmDetailTitle">Firma auswaehlen</h3>
+              <div class="card-sub" id="crmDetailSub">Waehl eine Firma, um Kontakte zu sehen</div>
+            </div>
+          </div>
+          <div class="card-content">
+            <table>
+              <thead>
+                <tr>
+                  <th>Typ</th>
+                  <th>Name / Adresse</th>
+                  <th>Rolle</th>
+                  <th>Telefon</th>
+                  <th>Email</th>
+                  <th>Markierung</th>
+                  <th>Aktion</th>
+                </tr>
+              </thead>
+              <tbody id="crmContactsBody"></tbody>
+            </table>
+
+            <div style="margin-top: 14px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg);">
+              <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;">
+                <div class="label" style="margin: 0;">Firmen-Notizen (Session)</div>
+                <select id="crmCompanyNotesFilter" class="input-field" style="max-width: 280px; margin: 0;"></select>
+              </div>
+              <div id="crmCompanyNotesHistory" style="max-height: 220px; overflow-y: auto;"></div>
+            </div>
+
+            <div class="divider"></div>
+
+            <div class="label">Neue Kontaktperson fuer diese Firma</div>
+            <div class="two-col">
+              <div>
+                <label class="label">Vorname</label>
+                <input type="text" id="crmNewContactFirst" class="input-field">
+              </div>
+              <div>
+                <label class="label">Nachname</label>
+                <input type="text" id="crmNewContactLast" class="input-field">
+              </div>
+            </div>
+            <div class="two-col">
+              <div>
+                <label class="label">Telefon</label>
+                <input type="tel" id="crmNewContactPhone" class="input-field" placeholder="+41 ...">
+              </div>
+              <div>
+                <label class="label">Email</label>
+                <input type="email" id="crmNewContactEmail" class="input-field" placeholder="mail@firma.ch">
+              </div>
+            </div>
+            <label class="label">LinkedIn</label>
+            <input type="url" id="crmNewContactLinkedIn" class="input-field" placeholder="https://linkedin.com/in/...">
+            <label class="label">Rolle</label>
+            <input type="text" id="crmNewContactRole" class="input-field" placeholder="z.B. Vertrieb">
+            <label class="label">Adresse / Zweigniederlassung</label>
+            <select id="crmNewContactBranch" class="input-field"></select>
+            <label class="label" style="display: flex; align-items: center; gap: 8px;">
+              <input type="checkbox" id="crmNewContactPrimary">
+              Hauptansprechperson
+            </label>
+            <button class="btn good" id="btnCrmAddContact" style="width: 100%; margin-top: 8px;">➕ Kontaktperson speichern</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h3 class="card-title">Doublett-Check</h3>
+              <div class="card-sub">Token eingeben und doppelte Firmen zusammenfuehren</div>
+            </div>
+          </div>
+          <div class="card-content">
+            <div>
+              <label class="label">Token (z.B. "Remax", "Engel")</label>
+              <input type="text" id="crmDuplicateToken" class="input-field" placeholder="Token eingeben...">
+            </div>
+            <div id="crmDuplicateResults" style="margin-top: 12px;"></div>
+            <button class="btn primary" id="btnCrmMergeDuplicates" style="margin-top: 12px;">🔗 Ausgewählte zusammenführen</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="settings" class="section">
+        <div class="main-header">
+          <div>
+            <div class="header-title">Einstellungen</div>
+            <div class="header-sub">Profil, Analytics und Datenverwaltung</div>
+          </div>
+          <button class="btn good" id="btnSaveSettings">💾 Speichern</button>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><h3 class="card-title">Profil</h3></div>
+          <div class="card-content">
+            <div class="two-col">
+              <div>
+                <label class="label">Name</label>
+                <input type="text" id="settingsName" class="input-field" placeholder="Dein Name">
+              </div>
+              <div>
+                <label class="label">Firma</label>
+                <input type="text" id="settingsCompany" class="input-field" placeholder="Dein Unternehmen">
+              </div>
+            </div>
+            <div>
+              <label class="label">Rolle (RBAC Light)</label>
+              <select id="settingsUserRole" class="input-field">
+                <option value="admin">Admin</option>
+                <option value="manager">Manager</option>
+                <option value="user">User</option>
+              </select>
+            </div>
+            <label class="label">Guides</label>
+            <textarea id="settingsGuides" class="input-field" placeholder="Kurze Leitsaetze..." style="min-height: 120px;"></textarea>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><h3 class="card-title">Pipeline Governance</h3></div>
+          <div class="card-content">
+            <label class="label" style="display: flex; align-items: center; gap: 8px;">
+              <input type="checkbox" id="settingsEnforceDealGovernance" checked>
+              Pflichtfelder fuer Deals erzwingen (Wert, Wahrscheinlichkeit, Close Date und Outcome bei Won/Lost)
+            </label>
+            <div class="hint" style="margin-top: 8px;">
+              Empfehlung: Aktiv lassen, damit Pipeline-Reportings konsistent bleiben.
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><h3 class="card-title">Kommunikation (v1 vorbereitet)</h3></div>
+          <div class="card-content">
+            <div class="two-col">
+              <div>
+                <label class="label">Mail Provider</label>
+                <select id="settingsCommProvider" class="input-field">
+                  <option value="mailto">Standard Mail-App (mailto)</option>
+                  <option value="gmail">Gmail Compose</option>
+                  <option value="outlook">Outlook Web Compose</option>
+                  <option value="outlook_graph_direct">Outlook Direct (Graph via Bridge)</option>
+                  <option value="ionos_imap_direct">IONOS IMAP Direct (via Bridge)</option>
+                </select>
+              </div>
+              <div>
+                <label class="label">Absender E-Mail (optional)</label>
+                <input type="email" id="settingsCommSender" class="input-field" placeholder="name@firma.ch">
+              </div>
+            </div>
+            <div class="two-col" style="margin-top: 8px;">
+              <div>
+                <label class="label">Bridge Endpoint (fuer Direct Send)</label>
+                <input type="url" id="settingsCommBridgeUrl" class="input-field" placeholder="https://.../api/mail/send">
+              </div>
+              <div>
+                <label class="label">Bridge Token (optional)</label>
+                <input type="password" id="settingsCommBridgeToken" class="input-field" placeholder="Bearer Token">
+              </div>
+            </div>
+            <div class="hint">Diese Adapterstruktur ist die Basis fuer spaetere native Integrationen.</div>
+            <label style="display:flex; align-items:center; gap:8px; margin-top:10px; font-size:12px; color:var(--text);">
+              <input type="checkbox" id="settingsCommAutoCompose">
+              In Session bei Mail/FU-Mails automatisch Mail-Aktion ausfuehren
+            </label>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><h3 class="card-title">Import / Export</h3></div>
+          <div class="card-content">
+            <h4 style="margin:0 0 10px; font-size:13px; font-weight:600;">Daten exportieren</h4>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom:16px;">
+              <button class="btn primary" id="btnExportCalls">📥 Calls (CSV)</button>
+              <button class="btn primary" id="btnExportOutreach">📥 LinkedIn Outreach (CSV)</button>
+              <button class="btn" id="btnExportAddresses">📥 Alle Adressen (CSV)</button>
+              <button class="btn primary" id="btnExportFull">📥 Vollständig (CSV)</button>
+            </div>
+            <div class="divider" style="margin:0 0 16px;"></div>
+            <div class="two-col" style="margin-bottom: 16px;">
+              <div>
+                <label class="label">CSV Upload</label>
+                <input type="file" id="csvUpload" accept=".csv,.txt,.tsv,.xls,.xlsx" class="input-field" style="padding: 8px">
+                <button class="btn primary" id="btnUploadCSV" onclick="window.handleCsvUploadClick && window.handleCsvUploadClick()" style="width: 100%; margin-top: 8px">📥 CSV laden</button>
+              </div>
+              <div>
+                <label class="label">CSV Einfuegen</label>
+                <textarea id="csvPaste" class="input-field" placeholder="Firma	Vorname	Nachname	Telefon	E-Mail	Strasse	Ortschaft	Region" style="min-height: 80px; font-family: monospace; font-size: 11px;"></textarea>
+                <button class="btn primary" id="btnPasteCSV" onclick="window.handleCsvPasteClick && window.handleCsvPasteClick()" style="width: 100%; margin-top: 8px">📋 Einfuegen</button>
+              </div>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+              <button class="btn" id="btnExportContacts" style="width: 100%">📥 Kontakte (CSV)</button>
+              <button class="btn" id="btnClearAllContacts" style="width: 100%">🗑️ Alle loeschen</button>
+            </div>
+
+            <div class="divider"></div>
+
+            <h4 style="margin: 0 0 12px 0; font-size: 13px; font-weight: 600;">Migration (Firebase JSON)</h4>
+            <label class="label">JSON-Datei hochladen</label>
+            <input type="file" id="migrationJsonFile" accept=".json" class="input-field" style="padding: 8px">
+            <label class="label">JSON einfuegen</label>
+            <textarea id="migrationJsonPaste" class="input-field" placeholder="Firebase JSON-Export" style="min-height: 120px; font-family: monospace; font-size: 11px;"></textarea>
+            <button class="btn primary" id="btnImportMigrationJson" style="width: 100%;">⬆️ Importieren & Ueberschreiben</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><h3 class="card-title">Team / Mitarbeiter</h3></div>
+          <div class="card-content">
+            <div class="two-col" style="margin-bottom: 12px;">
+              <div>
+                <label class="label">Vorname</label>
+                <input type="text" id="memberVorname" class="input-field" placeholder="z.B. Klaus">
+              </div>
+              <div>
+                <label class="label">Nachname</label>
+                <input type="text" id="memberNachname" class="input-field" placeholder="z.B. Dahlmann">
+              </div>
+            </div>
+            <div class="two-col" style="margin-bottom: 12px;">
+              <div>
+                <label class="label">Kuerzel (2-3 Zeichen)</label>
+                <input type="text" id="memberKuerzel" class="input-field" placeholder="z.B. KD" maxlength="3">
+              </div>
+              <div>
+                <label class="label">Teamfarbe</label>
+                <div id="memberColorPalette" style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px;"></div>
+                <input type="hidden" id="memberSelectedColor" value="#6366f1">
+              </div>
+            </div>
+            <button class="btn primary" id="btnAddMember" style="width: 100%;">+ Mitarbeiter hinzufuegen</button>
+            <div class="divider" style="margin: 16px 0;"></div>
+            <div id="membersList" style="display: flex; flex-direction: column; gap: 8px;"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><h3 class="card-title">User / Login Verwaltung</h3></div>
+          <div class="card-content">
+            <div class="hint" style="margin-bottom:10px;">Neue Logins direkt im Tool erstellen und Rolle zuweisen (ohne Firebase Console).</div>
+            <div class="two-col" style="margin-bottom: 10px;">
+              <div>
+                <label class="label">Name</label>
+                <input type="text" id="newUserName" class="input-field" placeholder="z.B. Max Muster">
+              </div>
+              <div>
+                <label class="label">E-Mail</label>
+                <input type="email" id="newUserEmail" class="input-field" placeholder="max@firma.ch">
+              </div>
+            </div>
+            <div class="two-col" style="margin-bottom: 10px;">
+              <div>
+                <label class="label">Passwort (min. 6 Zeichen)</label>
+                <input type="password" id="newUserPassword" class="input-field" placeholder="Temporäres Passwort">
+              </div>
+              <div>
+                <label class="label">Rolle</label>
+                <select id="newUserRole" class="input-field">
+                  <option value="user">User</option>
+                  <option value="manager">Manager</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+            </div>
+            <div style="margin-bottom:10px;">
+              <label class="label">Mit Mitarbeiter verknüpfen (optional)</label>
+              <select id="newUserMember" class="input-field">
+                <option value="">Kein Mitarbeiter verknüpft</option>
+              </select>
+            </div>
+            <button class="btn primary" id="btnCreateUserAccount" style="width:100%;">+ User Login erstellen</button>
+            <div class="divider" style="margin:16px 0;"></div>
+            <div id="userAccountsList" style="display:flex; flex-direction:column; gap:8px;"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><h3 class="card-title">Tags verwalten</h3></div>
+          <div class="card-content">
+            <button class="btn" data-open-tag-manager="true">Tag-Manager oeffnen</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><h3 class="card-title">Daten</h3></div>
+          <div class="card-content" style="overflow-x: auto;">
+            <h3 class="card-title" id="contactsListTitle">Kontakteliste (0)</h3>
+            <table id="contactsTable">
+              <thead>
+                <tr>
+                  <th>Vorname</th>
+                  <th>Nachname</th>
+                  <th>Firma</th>
+                  <th>Telefon</th>
+                  <th>Email</th>
+                  <th>Rolle</th>
+                  <th>Region</th>
+                  <th>Status</th>
+                  <th>Zustaendig</th>
+                  <th>Aktion</th>
+                </tr>
+              </thead>
+              <tbody id="contactsTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── ANALYTICS DASHBOARD SEKTION ── -->
+      <div id="analytics" class="section">
+        <div class="main-header">
+          <div>
+            <div class="header-title">📊 Analytics Dashboard</div>
+            <div class="header-sub">Korrekte Auswertung nach Modul, Zeitraum und Mitarbeiter</div>
+          </div>
+          <button class="btn primary" id="btnDashAnalyticsApply">🔍 Anwenden</button>
+        </div>
+
+        <!-- Filter Card -->
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-content" style="padding:16px;">
+            <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; margin-bottom:14px;">
+              <div>
+                <label class="label">Von</label>
+                <input type="date" id="dashAnalyticsFrom" class="input-field" style="min-width:145px;">
+              </div>
+              <div>
+                <label class="label">Bis</label>
+                <input type="date" id="dashAnalyticsTo" class="input-field" style="min-width:145px;">
+              </div>
+              <div>
+                <label class="label">Mitarbeiter</label>
+                <select id="dashAnalyticsMember" class="input-field" style="min-width:145px;">
+                  <option value="all">Alle</option>
+                </select>
+              </div>
+              <div style="display:flex; gap:8px;">
+                <button class="btn primary" id="btnDashAnalyticsApply2">🔍 Anwenden</button>
+                <button class="btn" id="btnDashAnalyticsReset">🔄 Zurücksetzen</button>
+              </div>
+            </div>
+            <!-- Module Tabs -->
+            <div class="analytics-tab-bar">
+              <button class="analytics-tab active" data-analytics-module="all">📋 Alle Aktivitäten</button>
+              <button class="analytics-tab" data-analytics-module="call">📞 Calls</button>
+              <button class="analytics-tab" data-analytics-module="mail">📧 Mail</button>
+              <button class="analytics-tab" data-analytics-module="followup">🔄 Followup</button>
+              <button class="analytics-tab" data-analytics-module="outreach">💼 LinkedIn Outreach</button>
+              <button class="analytics-tab" data-analytics-module="vr">🎥 VR Rundgang</button>
+            </div>
+            <div id="dashAnalyticsFilterInfo" style="margin-top:10px; font-size:11px; color:var(--muted);"></div>
+          </div>
+        </div>
+
+        <!-- KPI Row -->
+        <div class="analytics-kpi-grid" id="dashAnalyticsKpis" style="margin-bottom:16px;"></div>
+
+        <!-- Module Detail Stats -->
+        <div id="dashAnalyticsModuleDetail" style="margin-bottom:16px;"></div>
+
+        <!-- Trend Chart -->
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-head">
+            <div>
+              <h3 class="card-title">Tagesverlauf im Zeitraum</h3>
+              <div class="card-sub" id="dashTrendSubtitle">Aktionen pro Tag</div>
+            </div>
+          </div>
+          <div class="card-content">
+            <div id="dashAnalyticsTrend"></div>
+          </div>
+        </div>
+
+        <!-- Status + Deals -->
+        <div class="two-col" style="margin-bottom:16px;">
+          <div class="card">
+            <div class="card-head">
+              <h3 class="card-title">Status Verteilung</h3>
+              <div class="card-sub">Aktuell – alle Kontakte</div>
+            </div>
+            <div class="card-content"><div id="dashAnalyticsStatusDist"></div></div>
+          </div>
+          <div class="card">
+            <div class="card-head">
+              <h3 class="card-title">Deal Funnel</h3>
+              <div class="card-sub">Deals nach Stage + Weighted Pipeline</div>
+            </div>
+            <div class="card-content"><div id="dashAnalyticsDealFunnel"></div></div>
+          </div>
+        </div>
+
+        <!-- Member Stats -->
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-head">
+            <h3 class="card-title">Team / Mitarbeiter</h3>
+            <div class="card-sub">Calls, Followups und Kontakte im Zeitraum</div>
+          </div>
+          <div class="card-content"><div id="dashAnalyticsMemberStats"></div></div>
+        </div>
+
+        <!-- Contacts in period -->
+        <div class="card">
+          <div class="card-head">
+            <h3 class="card-title" id="dashAnalyticsContactsTitle">Kontakte im Zeitraum</h3>
+            <div class="card-sub">Eindeutige Kontakte mit Aktivität im gewählten Zeitraum</div>
+          </div>
+          <div class="card-content">
+            <div id="dashAnalyticsContacts" style="display:grid; gap:10px;">
+              <div style="color:var(--muted); font-size:12px; text-align:center; padding:20px;">Zeitraum wählen und "Anwenden" klicken</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- AUFGABEN SEKTION -->
+      <div id="aufgaben" class="section">
+        <div class="main-header">
+          <div>
+            <div class="header-title">📋 Aufgaben</div>
+            <div class="header-sub" id="aufgabenStats">Aufgaben, Content &amp; Events verwalten</div>
+          </div>
+          <button class="btn primary" onclick="openTaskModal()">+ Neue Aufgabe</button>
+        </div>
+
+        <!-- Tabs: Aufgaben / Auswertung / LinkedIn Tracking -->
+        <div style="display:flex; gap:0; margin-bottom:16px; border-bottom:1px solid var(--line);">
+          <button class="analytics-tab active" data-tasks-tab="list" style="border-bottom:2px solid var(--accent); margin-bottom:-1px;">📋 Aufgaben</button>
+          <button class="analytics-tab" data-tasks-tab="analytics" style="margin-bottom:-1px;">📊 Auswertung</button>
+          <button class="analytics-tab" data-tasks-tab="linkedin" style="margin-bottom:-1px;">📈 LinkedIn Tracking</button>
+        </div>
+
+        <!-- LIST TAB -->
+        <div id="aufgabenListTab">
+          <!-- Filter bar -->
+          <div class="card" style="margin-bottom:14px;">
+            <div class="card-content" style="padding:14px 16px;">
+              <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+                <div>
+                  <label class="label">Typ</label>
+                  <select id="taskFilterType" class="input-field" style="min-width:170px;">
+                    <option value="all">Alle Typen</option>
+                    <option value="liUnternehmen">🏢 LinkedIn Unternehmen</option>
+                    <option value="liPersoenlich">👤 LinkedIn Persönlich</option>
+                    <option value="blog">📝 Blog</option>
+                    <option value="event">🎪 Event</option>
+                    <option value="sonstiges">📋 Sonstiges</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="label">Status</label>
+                  <select id="taskFilterStatus" class="input-field" style="min-width:145px;">
+                    <option value="all">Alle Status</option>
+                    <option value="idee">💡 Idee</option>
+                    <option value="geplant">📅 Geplant</option>
+                    <option value="inbearbeitung">⚙️ In Bearbeitung</option>
+                    <option value="erledigt">✅ Erledigt</option>
+                    <option value="abgesagt">❌ Abgesagt</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="label">Priorität</label>
+                  <select id="taskFilterPriority" class="input-field" style="min-width:130px;">
+                    <option value="all">Alle</option>
+                    <option value="hoch">🔴 Hoch</option>
+                    <option value="mittel">🟡 Mittel</option>
+                    <option value="tief">🟢 Tief</option>
+                  </select>
+                </div>
+                <div style="display:flex; gap:6px;">
+                  <button class="btn" onclick="applyTaskFilter()">🔍 Filtern</button>
+                  <button class="btn" onclick="resetTaskFilter()">🔄 Reset</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- Task list -->
+          <div id="aufgabenListe" style="display:grid; gap:10px;"></div>
+        </div>
+
+        <!-- ANALYTICS TAB -->
+        <div id="aufgabenAnalyticsTab" style="display:none;">
+          <div class="card" style="margin-bottom:16px;">
+            <div class="card-head">
+              <div>
+                <h3 class="card-title">Wochenziele & Soll-Ist-Abgleich</h3>
+                <div class="card-sub" id="weeklyRangeLabel">Kalenderwoche</div>
+              </div>
+              <div style="display:flex; gap:8px; align-items:center;">
+                <input type="week" id="taskWeekKey" class="input-field" style="min-width:150px;" onchange="renderTasksAnalytics()">
+                <button class="btn primary" onclick="saveWeeklyGoalsFromInputs()">💾 Wochenziele speichern</button>
+              </div>
+            </div>
+            <div class="card-content" style="padding:16px;">
+              <div class="two-col" style="margin-bottom:16px;">
+                <div>
+                  <div style="font-size:12px; color:var(--muted); margin-bottom:8px;">Ziele für diese Woche</div>
+                  <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:10px;">
+                    <div><label class="label">Erledigte Aufgaben</label><input type="number" min="0" id="goalCompletedTasks" class="input-field" value="0"></div>
+                    <div><label class="label">Company Posts</label><input type="number" min="0" id="goalCompanyPosts" class="input-field" value="0"></div>
+                    <div><label class="label">Personal Posts</label><input type="number" min="0" id="goalPersonalPosts" class="input-field" value="0"></div>
+                    <div><label class="label">Event-Aktivitäten</label><input type="number" min="0" id="goalEvents" class="input-field" value="0"></div>
+                    <div><label class="label">Neue Company Follower</label><input type="number" min="0" id="goalCompanyFollowers" class="input-field" value="0"></div>
+                    <div><label class="label">Neue persönliche Verbindungen</label><input type="number" min="0" id="goalPersonalConnections" class="input-field" value="0"></div>
+                    <div><label class="label">Session Calls</label><input type="number" min="0" id="goalSessionCalls" class="input-field" value="0"></div>
+                    <div><label class="label">Session Outbound (LI)</label><input type="number" min="0" id="goalSessionOutbound" class="input-field" value="0"></div>
+                    <div><label class="label">Session Mail</label><input type="number" min="0" id="goalSessionMail" class="input-field" value="0"></div>
+                    <div><label class="label">Session Followup</label><input type="number" min="0" id="goalSessionFollowup" class="input-field" value="0"></div>
+                    <div><label class="label">Session VR</label><input type="number" min="0" id="goalSessionVr" class="input-field" value="0"></div>
+                  </div>
+                </div>
+                <div>
+                  <div style="font-size:12px; color:var(--muted); margin-bottom:8px;">Soll-Ist-Abgleich</div>
+                  <div id="weeklyGoalComparison"></div>
+                </div>
+              </div>
+
+              <div style="border-top:1px solid var(--line); padding-top:14px;">
+                <div style="display:flex; gap:8px; align-items:flex-end; margin-bottom:10px; flex-wrap:wrap;">
+                  <div style="flex:1; min-width:220px;">
+                    <label class="label">Wochencheckliste</label>
+                    <input type="text" id="weeklyChecklistInput" class="input-field" placeholder="z.B. 2 Content-Pieces vorproduzieren">
+                  </div>
+                  <button class="btn" onclick="addWeeklyChecklistItem()">+ Punkt hinzufügen</button>
+                </div>
+                <div id="weeklyChecklistList"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="analytics-kpi-grid" id="taskKpiGrid" style="margin-bottom:16px;"></div>
+          <div class="two-col" style="margin-bottom:16px;">
+            <div class="card">
+              <div class="card-head"><h3 class="card-title">Aufgaben nach Typ</h3></div>
+              <div class="card-content" style="padding:16px;"><div id="taskByType"></div></div>
+            </div>
+            <div class="card">
+              <div class="card-head"><h3 class="card-title">Status Verteilung</h3></div>
+              <div class="card-content" style="padding:16px;"><div id="taskByStatus"></div></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-head"><h3 class="card-title">Erledigte Aufgaben – Monatsverlauf</h3></div>
+            <div class="card-content" style="padding:16px;"><div id="taskTrend"></div></div>
+          </div>
+        </div>
+
+        <!-- LINKEDIN TRACKING TAB -->
+        <div id="aufgabenLiTab" style="display:none;">
+          <!-- Profile sub-tabs -->
+          <div style="display:flex; gap:8px; margin-bottom:16px;">
+            <button class="btn primary" data-li-profile="company">🏢 Unternehmen</button>
+            <button class="btn" data-li-profile="personal">👤 Persönlich</button>
+          </div>
+
+          <!-- Follower / Verbindungen Growth -->
+          <div class="card" style="margin-bottom:16px;">
+            <div class="card-head">
+              <div>
+                <h3 class="card-title" id="liGrowthTitle">Follower-Entwicklung</h3>
+                <div class="card-sub" id="liGrowthSub">LinkedIn Unternehmensseite</div>
+              </div>
+              <button class="btn primary" onclick="openLiSnapshotModal()">+ Snapshot</button>
+            </div>
+            <div class="card-content" style="padding:16px;">
+              <div class="analytics-kpi-grid" id="liGrowthKpis" style="margin-bottom:16px;"></div>
+              <div id="liGrowthChart" style="margin-bottom:14px;"></div>
+              <div id="liSnapshotTable"></div>
+            </div>
+          </div>
+
+          <!-- Post Performance -->
+          <div class="card">
+            <div class="card-head">
+              <div>
+                <h3 class="card-title">Post Performance</h3>
+                <div class="card-sub" id="liPostsSub">LinkedIn Beiträge</div>
+              </div>
+              <button class="btn primary" onclick="openLiPostModal()">+ Post erfassen</button>
+            </div>
+            <div class="card-content" style="padding:16px;">
+              <div class="analytics-kpi-grid" id="liPostKpis" style="margin-bottom:16px;"></div>
+              <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; align-items:flex-end;">
+                <div>
+                  <label class="label">Format</label>
+                  <select id="liPostFilterFormat" class="input-field" style="min-width:150px;">
+                    <option value="all">Alle Formate</option>
+                    <option value="text">📝 Text</option>
+                    <option value="bild">🖼️ Bild</option>
+                    <option value="video">🎥 Video</option>
+                    <option value="artikel">📰 Artikel</option>
+                    <option value="dokument">📄 Dokument/PDF</option>
+                    <option value="carousel">🎠 Karussell</option>
+                    <option value="umfrage">📊 Umfrage</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="label">Von</label>
+                  <input type="date" id="liPostFilterFrom" class="input-field" style="min-width:140px;">
+                </div>
+                <div>
+                  <label class="label">Bis</label>
+                  <input type="date" id="liPostFilterTo" class="input-field" style="min-width:140px;">
+                </div>
+                <button class="btn" onclick="renderLiTracking()">🔍 Filtern</button>
+                <button class="btn" onclick="resetLiPostFilter()">🔄 Reset</button>
+              </div>
+              <div id="liPostsTable" style="overflow-x:auto;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIRTUELLER RUNDGANG SEKTION -->
+      <div id="vrundgang" class="section">
+        <div class="main-header">
+          <div>
+            <div class="header-title">🎥 Virtueller Rundgang</div>
+            <div class="header-sub">Mail-Generator und Kontakt-Tracking fuer VR-Akquise</div>
+          </div>
+        </div>
+
+        <!-- VR SESSION CARD -->
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h3 class="card-title">VR Session</h3>
+              <div class="card-sub">Kontakte nacheinander abarbeiten, Projektdaten ergaenzen und Mails generieren</div>
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <button class="btn" id="btnVrLoadAll">🔄 Alle VR-Kontakte laden</button>
+              <button class="btn primary" id="btnVrStartSession">▶ Session starten</button>
+            </div>
+          </div>
+          <div class="card-content">
+            <div id="vrSessionInfo" style="padding:10px; background:var(--accent-soft); border-radius:10px; font-size:12px; color:var(--muted); margin-bottom:12px;">
+              Keine Kontakte in der Queue. Kontakte per Batch-Auswahl hinzufuegen oder alle VR-Kontakte laden.
+            </div>
+
+            <div id="vrActiveSession" style="display:none;">
+
+              <!-- Kontakt suchen / verlinken -->
+              <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:8px;">
+                <input type="text" id="vrContactSearch" class="input-field" placeholder="🔍 Kontakt suchen (Name, Firma, E-Mail)…" style="flex:1; min-width:160px; margin:0;" oninput="vrSearchContacts(this.value)">
+                <button class="btn" type="button" onclick="vrClearContact()">✕ Leeren</button>
+              </div>
+              <div id="vrContactSearchResults" style="display:none; border:1px solid var(--line); border-radius:8px; background:var(--card); max-height:180px; overflow-y:auto; margin-bottom:8px; font-size:12px;"></div>
+
+              <!-- Verlinkter Kontakt Badge -->
+              <div id="vrLinkedContactBadge" style="display:none; background:var(--accent-soft); border-radius:8px; padding:7px 12px; margin-bottom:10px;">
+                <div class="contact-name" id="vrSessionContactName" style="font-size:13px;">–</div>
+                <div id="vrSessionContactCompany" style="color:var(--muted); font-size:11px;">–</div>
+                <div id="vrSessionContactMeta" style="color:var(--muted); font-size:11px; margin-top:2px;">–</div>
+                <span class="status-badge" id="vrSessionContactStatus" style="margin-top:4px; display:inline-block;">–</span>
+              </div>
+
+              <!-- Formular: Kontakt- & Projektdaten -->
+              <div class="card" style="margin-bottom:12px;">
+                <div class="card-content">
+                  <div class="label" style="font-weight:700; margin-bottom:8px;">Kontakt- &amp; Projektdaten</div>
+                  <div style="display:flex; gap:6px; margin-bottom:8px;">
+                    <button class="btn active" id="vrSAnredeHerr" onclick="vrSSetAnrede('Herr')">Herr</button>
+                    <button class="btn" id="vrSAnredeFrau" onclick="vrSSetAnrede('Frau')">Frau</button>
+                  </div>
+                  <div class="two-col">
+                    <div>
+                      <label class="label">Vorname</label>
+                      <input type="text" id="vrSVorname" class="input-field" placeholder="Vorname" oninput="renderVrSessionPreview()">
+                    </div>
+                    <div>
+                      <label class="label">Nachname</label>
+                      <input type="text" id="vrSNachname" class="input-field" placeholder="Nachname" oninput="renderVrSessionPreview()">
+                    </div>
+                  </div>
+                  <label class="label">Firma</label>
+                  <input type="text" id="vrSFirma" class="input-field" placeholder="Firma">
+                  <div class="two-col">
+                    <div>
+                      <label class="label">E-Mail</label>
+                      <input type="email" id="vrSEmail" class="input-field" placeholder="mail@firma.ch">
+                    </div>
+                    <div>
+                      <label class="label">Telefon</label>
+                      <input type="tel" id="vrSTelefon" class="input-field" placeholder="+41 …">
+                    </div>
+                  </div>
+                  <div class="two-col">
+                    <div>
+                      <label class="label">Projektname</label>
+                      <input type="text" id="vrSProjekt" class="input-field" placeholder="z.B. Residenz am Park" oninput="renderVrSessionPreview()">
+                    </div>
+                    <div>
+                      <label class="label">Wohnungsname</label>
+                      <input type="text" id="vrSWohnung" class="input-field" placeholder="z.B. Wohnung A1.02" oninput="renderVrSessionPreview()">
+                    </div>
+                  </div>
+                  <div class="two-col">
+                    <div>
+                      <label class="label">Punkte (360°-Bilder)</label>
+                      <input type="number" id="vrSPunkte" class="input-field" min="1" value="1" oninput="renderVrSessionPreview()">
+                    </div>
+                    <div>
+                      <label class="label">Variante</label>
+                      <select id="vrSVariante" class="input-field" onchange="renderVrSessionPreview()">
+                        <option value="web">Projektwebseite</option>
+                        <option value="web_grundriss">Projektwebseite + Grundriss</option>
+                        <option value="portal">Portal</option>
+                        <option value="portal_grundriss">Portal + Grundriss</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Mail-Vorschau -->
+              <div class="card" style="margin-bottom:12px;">
+                <div class="card-content">
+                  <div class="label" style="font-weight:700; margin-bottom:8px;">Mail-Vorschau</div>
+                  <div id="vrSPreviewSubject" style="font-size:12px; font-weight:700; color:var(--accent); margin-bottom:6px;"></div>
+                  <div id="vrSPreviewBody" style="font-size:11px; white-space:pre-wrap; background:rgba(0,0,0,.03); border:1px solid var(--line); border-radius:8px; padding:10px; max-height:220px; overflow-y:auto; font-family:monospace; line-height:1.6;"></div>
+                  <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;">
+                    <button class="btn primary" onclick="sendVrSessionMail()" style="flex:1;">📤 Mail senden (Outlook)</button>
+                    <button class="btn" onclick="copyVrSessionMail()">📋 Kopieren</button>
+                  </div>
+                  <label class="label" style="margin-top:10px;">Notiz (optional)</label>
+                  <textarea id="vrSNotes" class="input-field" placeholder="z.B. Mail gesendet, Follow-up geplant…" style="min-height:50px;"></textarea>
+                </div>
+              </div>
+
+              <div style="display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap;">
+                <button class="btn good" id="btnVrSaveAndNext" style="flex:1;">✅ Gesendet &amp; Nächster</button>
+                <button class="btn" id="btnVrSkip">⏭ Überspringen</button>
+              </div>
+
+              <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--muted);">
+                <button class="btn" id="btnVrSessionPrev">← Zurück</button>
+                <span id="vrSessionProgress">1 / 1</span>
+                <button class="btn" id="btnVrSessionNext">Weiter →</button>
+                <button class="btn" id="btnVrEndSession">🏁 Beenden</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- BEREICH B: TRACKING-TABELLE -->
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h3 class="card-title">Rundgang-Kontakte</h3>
+              <div class="card-sub">Übersicht mit Suche, Filter, Sortierung und Phase</div>
+            </div>
+            <button class="btn" onclick="renderVrTrackingTable()">🔄 Aktualisieren</button>
+          </div>
+          <div class="card-content">
+            <div class="vr-overview-kpi">
+              <div id="vrOverviewSummary">0 Kontakte · 0 heute fällig</div>
+              <div class="view-toggle">
+                <button class="btn active" id="btnVrViewList">Liste</button>
+                <button class="btn" id="btnVrViewTiles">Kachel</button>
+              </div>
+            </div>
+
+            <div class="vr-overview-controls">
+              <input type="text" id="vrOverviewSearch" class="input-field" placeholder="Suche: Name, Firma, Ort, Projekt..." style="margin:0;">
+              <select id="vrOverviewStatus" class="input-field" style="margin:0;">
+                <option value="all">Alle Status</option>
+                <option value="vrtoday">VR Heute</option>
+                <option value="vrmail_gesendet">VR Mail gesendet</option>
+                <option value="vrfollowup1">VR Followup 1</option>
+                <option value="vrfollowup2">VR Followup 2</option>
+                <option value="vrfollowup3">VR Followup 3</option>
+              </select>
+              <select id="vrOverviewSortBy" class="input-field" style="margin:0;">
+                <option value="nextDue">Nächster Schritt</option>
+                <option value="status">Status/Phase</option>
+                <option value="name">Name</option>
+                <option value="company">Firma</option>
+                <option value="location">Ort</option>
+                <option value="lastTouch">Letzte VR-Aktion</option>
+              </select>
+              <button class="btn" id="btnVrOverviewSortDir">↑ Aufsteigend</button>
+              <button class="btn" id="btnVrOverviewReset">Reset</button>
+            </div>
+
+            <div class="vr-list-wrap" id="vrTrackingListWrap" style="overflow-x:auto;">
+              <table style="width:100%; border-collapse:collapse; font-size:12px; margin-top:0;">
+                <thead>
+                  <tr style="border-bottom:1px solid var(--line);">
+                    <th style="text-align:left; padding:8px 6px; color:var(--muted); font-weight:600;">An wen</th>
+                    <th style="text-align:left; padding:8px 6px; color:var(--muted); font-weight:600;">Firma</th>
+                    <th style="text-align:left; padding:8px 6px; color:var(--muted); font-weight:600;">Wo</th>
+                    <th style="text-align:left; padding:8px 6px; color:var(--muted); font-weight:600;">Projekt</th>
+                    <th style="text-align:left; padding:8px 6px; color:var(--muted); font-weight:600;">Phase</th>
+                    <th style="text-align:left; padding:8px 6px; color:var(--muted); font-weight:600;">Letzte Aktion</th>
+                    <th style="text-align:left; padding:8px 6px; color:var(--muted); font-weight:600;">Nächster Schritt</th>
+                    <th style="text-align:left; padding:8px 6px; color:var(--muted); font-weight:600;">Aktion</th>
+                  </tr>
+                </thead>
+                <tbody id="vrTrackingBody">
+                  <tr><td colspan="8" style="text-align:center; color:var(--muted); padding:20px;">Keine VR-Kontakte vorhanden</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div id="vrTrackingGrid" class="vr-tracking-grid" style="display:none;"></div>
+          </div>
+        </div>
+      </div><!-- end #vrundgang -->
+
+      <div id="matkon" class="section">
+        <div class="main-header">
+          <div>
+            <div class="header-title">🐾 MatKon – Hund-Katze-Maus</div>
+            <div class="header-sub" id="matkonSubtitle">Sales Tracking für die MatKon-Vermarktung · Wir sind die Hunde, die Kunden sind die Katzen</div>
+          </div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button class="btn" id="btnMatkonAnalytics" onclick="setMatkonTab('analytics')">📊 Analytics</button>
+            <button class="btn primary" id="btnAddMatkonProject" onclick="openAddMatkonProjectModal()">+ Neues Projekt</button>
+          </div>
+        </div>
+
+        <!-- Tab Navigation -->
+        <div class="filter-tabs" style="margin-bottom: 16px;">
+          <button class="filter-tab active" data-matkon-tab="projects" onclick="setMatkonTab('projects')">📋 Projektliste</button>
+          <button class="filter-tab" data-matkon-tab="analytics" onclick="setMatkonTab('analytics')">📊 Analytics</button>
+        </div>
+
+        <!-- PROJEKTLISTE VIEW -->
+        <div id="matkonProjectsView">
+          <div class="card">
+            <div class="card-content">
+              <div style="display: grid; grid-template-columns: 1.5fr 1fr 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                <div>
+                  <label class="label">Suche</label>
+                  <input type="text" id="matkonSearch" class="input-field" placeholder="Projektname, Firma..." style="margin:0;" oninput="renderMatkonProjects()">
+                </div>
+                <div>
+                  <label class="label">Region / Revier</label>
+                  <select id="matkonFilterTerritory" class="input-field" style="margin:0;" onchange="renderMatkonProjects()">
+                    <option value="">Alle Regionen</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="label">Zugewiesen an</label>
+                  <select id="matkonFilterMember" class="input-field" style="margin:0;" onchange="renderMatkonProjects()">
+                    <option value="">Alle Mitarbeiter</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="label">Status</label>
+                  <select id="matkonFilterStatus" class="input-field" style="margin:0;" onchange="renderMatkonProjects()">
+                    <option value="">Alle Status</option>
+                    <option value="new">🆕 Neu</option>
+                    <option value="in_progress">⏳ In Bearbeitung</option>
+                    <option value="closed_won">✅ Abgeschlossen (Gewonnen)</option>
+                    <option value="closed_lost">❌ Abgeschlossen (Verloren)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style="border: 1px solid var(--line); border-radius: 10px; overflow: hidden;">
+                <table id="matkonProjectTable">
+                  <thead>
+                    <tr style="background: rgba(245,158,11,.06);">
+                      <th>Projekt</th>
+                      <th>Firma / Kontakt</th>
+                      <th>Region</th>
+                      <th>Zugewiesen</th>
+                      <th>Status</th>
+                      <th>Checkliste</th>
+                      <th>Letzte Aktivität</th>
+                      <th>Aktionen</th>
+                    </tr>
+                  </thead>
+                  <tbody id="matkonProjectsBody">
+                    <tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px;">Keine Projekte vorhanden. Füge das erste Projekt hinzu!</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ANALYTICS VIEW -->
+        <div id="matkonAnalyticsView" style="display:none;">
+          <div class="card" style="margin-bottom: 16px;">
+            <div class="card-content">
+              <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+                <div>
+                  <label class="label">Von</label>
+                  <input type="date" id="matkonDateFrom" class="input-field" style="margin:0;" onchange="renderMatkonAnalytics()">
+                </div>
+                <div>
+                  <label class="label">Bis</label>
+                  <input type="date" id="matkonDateTo" class="input-field" style="margin:0;" onchange="renderMatkonAnalytics()">
+                </div>
+                <div>
+                  <label class="label">Mitarbeiter</label>
+                  <select id="matkonAnalyticsMember" class="input-field" style="margin:0;" onchange="renderMatkonAnalytics()">
+                    <option value="">Alle Mitarbeiter</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="analytics-kpi-grid" id="matkonKpiGrid" style="margin-bottom: 20px;">
+            <div class="analytics-kpi-card"><div class="analytics-kpi-value" id="mkKpiCalls">0</div><div class="analytics-kpi-label">Calls</div></div>
+            <div class="analytics-kpi-card"><div class="analytics-kpi-value" id="mkKpiDemos">0</div><div class="analytics-kpi-label">Demos</div></div>
+            <div class="analytics-kpi-card highlight-good"><div class="analytics-kpi-value" id="mkKpiWon">0</div><div class="analytics-kpi-label">Abschlüsse</div></div>
+            <div class="analytics-kpi-card highlight-bad"><div class="analytics-kpi-value" id="mkKpiRejected">0</div><div class="analytics-kpi-label">Absagen</div></div>
+            <div class="analytics-kpi-card"><div class="analytics-kpi-value" id="mkKpiRevenue">CHF 0</div><div class="analytics-kpi-label">Umsatz</div></div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+            <div class="card">
+              <div class="card-head"><h3 class="card-title">Paket-Breakdown</h3></div>
+              <div class="card-content" id="matkonPackageBreakdown">
+                <div style="color:var(--muted);text-align:center;padding:20px;">Keine Daten</div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-head"><h3 class="card-title">Top Absagegründe</h3></div>
+              <div class="card-content" id="matkonRejectionReasons">
+                <div style="color:var(--muted);text-align:center;padding:20px;">Keine Daten</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div><!-- end #matkon -->
+
+  <div id="toast" class="toast"></div>
+
+  <div id="irApiModal" class="modal">
+    <div class="modal-content" style="position: relative; max-width: 520px;">
+      <button class="modal-close" id="btnCloseIrApiModal">✕</button>
+      <h3 class="modal-title">ImmoRadar API Konfiguration</h3>
+      <div class="hint" style="margin-bottom: 10px;">
+        Der Key wird in den bestehenden Einstellungen gespeichert und mit Firebase synchronisiert.
+      </div>
+      <label class="label">Bridge Endpoint</label>
+      <input type="url" id="irApiBridgeUrl" class="input-field" placeholder="https://.../api/mail/send">
+      <label class="label">API Key / Bearer Token</label>
+      <input type="password" id="irApiToken" class="input-field" placeholder="Bearer Token">
+      <label class="label">Template Stil</label>
+      <select id="irTemplateTone" class="input-field">
+        <option value="consultative">Consultative</option>
+        <option value="direct">Direct</option>
+        <option value="friendly">Friendly</option>
+      </select>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px;">
+        <button class="btn" id="btnIrApiCancel">Abbrechen</button>
+        <button class="btn primary" id="btnIrApiSave">💾 Speichern</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAG MANAGER MODAL -->
+  <div id="tagManagerModal" class="modal">
+    <div class="modal-content" style="position: relative;">
+      <button class="modal-close" id="btnCloseTagManager">✕</button>
+      <h3 class="modal-title">🏷️ Tags verwalten</h3>
+
+      <!-- TAG ERSTELLEN SEKTION -->
+      <div class="tag-manager-section">
+        <h4 class="tag-manager-title">Neues Tag erstellen</h4>
+
+        <div class="tag-input-group">
+          <input type="text" id="tagNameInput" class="tag-name-input" placeholder="z.B. Immo26, Privatkontakt...">
+          <button class="tag-color-picker-btn" id="btnShowColorPicker" title="Farbe wählen"></button>
+        </div>
+
+        <!-- COLOR PICKER -->
+        <div id="colorPickerContainer" style="display: none; margin-bottom: 12px;">
+          <div style="margin-bottom: 10px; font-size: 11px; color: var(--muted); font-weight: 600;">FARBPALETTE</div>
+          <div class="color-palette" id="colorPalette"></div>
+
+          <div style="margin-bottom: 8px; font-size: 11px; color: var(--muted); font-weight: 600; margin-top: 12px;">CUSTOM HEX/RGB</div>
+          <input type="text" id="hexInput" class="hex-rgb-input" placeholder="#FF5733 oder rgb(255, 87, 51)">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+            <button class="btn" id="btnApplyHex" style="padding: 8px 12px; font-size: 12px;">✓ Anwenden</button>
+            <button class="btn" id="btnCancelColorPicker" style="padding: 8px 12px; font-size: 12px;">✕ Schließen</button>
+          </div>
+        </div>
+
+        <button class="btn good" id="btnCreateTag" style="width: 100%; padding: 10px;">➕ Tag erstellen</button>
+      </div>
+
+      <!-- EXISTIERENDE TAGS SEKTION -->
+      <div class="tag-manager-section">
+        <h4 class="tag-manager-title">Vorhandene Tags</h4>
+        <div class="tag-list" id="tagsList">
+          <div style="color: var(--muted); font-size: 12px; text-align: center; padding: 20px;">
+            Keine Tags vorhanden. Erstelle dein erstes Tag!
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EDIT MODAL -->
+  <div id="editModal" class="modal">
+    <div class="modal-content" style="position: relative;">
+      <button class="modal-close" id="btnCloseModal">✕</button>
+      <h3 class="modal-title">Kontakt bearbeiten</h3>
+
+      <div class="two-col">
+        <div>
+          <label class="label">Vorname</label>
+          <input type="text" id="editVorname" class="input-field">
+        </div>
+        <div>
+          <label class="label">Nachname</label>
+          <input type="text" id="editNachname" class="input-field">
+        </div>
+      </div>
+
+      <label class="label">Firma</label>
+      <input type="text" id="editFirma" class="input-field">
+
+      <div class="two-col">
+        <div>
+          <label class="label">Telefon Ansprechpartner</label>
+          <input type="tel" id="editTelefon" class="input-field">
+        </div>
+        <div>
+          <label class="label">Email Ansprechpartner</label>
+          <input type="email" id="editEmail" class="input-field">
+        </div>
+      </div>
+
+      <label class="label">LinkedIn URL</label>
+      <input type="url" id="editLinkedIn" class="input-field" placeholder="https://www.linkedin.com/in/...">
+
+      <div class="two-col">
+        <div>
+          <label class="label">Telefon Firma</label>
+          <input type="tel" id="editFirmaTel" class="input-field">
+        </div>
+        <div>
+          <label class="label">Email Firma</label>
+          <input type="email" id="editFirmaEmail" class="input-field">
+        </div>
+      </div>
+
+      <label class="label">Rolle</label>
+      <input type="text" id="editRolle" class="input-field">
+
+      <label class="label">Adresse / Zweigniederlassung</label>
+      <select id="editCompanyBranch" class="input-field"></select>
+
+      <label class="label" style="display: flex; align-items: center; gap: 8px;">
+        <input type="checkbox" id="editPrimaryContact">
+        Hauptansprechperson
+      </label>
+
+      <div class="two-col">
+        <div>
+          <label class="label">Strasse</label>
+          <input type="text" id="editStrasse" class="input-field">
+        </div>
+        <div>
+          <label class="label">Ortschaft</label>
+          <input type="text" id="editOrtschaft" class="input-field">
+        </div>
+      </div>
+
+      <label class="label">Region / Segment</label>
+      <input type="text" id="editRegion" class="input-field" placeholder="z.B. Neubau, Bestand">
+
+      <label class="label">🏗️ Neubauprojekt</label>
+      <select id="editNeubau" class="input-field">
+        <option value="">– Keine Angabe –</option>
+        <option value="vorhanden">✅ Vorhanden / Online</option>
+        <option value="planung">📋 In Planung</option>
+      </select>
+
+      <div class="two-col">
+        <div>
+          <label class="label">Phase / Pipeline</label>
+          <select id="editPhase" class="input-field">
+            <option value="">– Keine Phase –</option>
+            <option value="coldcall">📞 Phase 1 – Cold Call</option>
+            <option value="mail">✉️ Phase 2 – Mail gesendet</option>
+            <option value="followup1">🔄 Phase 3 – Followup 1</option>
+            <option value="followup2">🔁 Phase 4 – Followup 2</option>
+            <option value="followup3">🔂 Phase 5 – Followup 3</option>
+          </select>
+        </div>
+        <div>
+          <label class="label">Interesse (1–5 Sterne)</label>
+          <div style="display: flex; align-items: center; gap: 8px; margin: 8px 0;">
+            <div class="star-rating" id="editStarRating">
+              <span class="star" data-star="1">★</span>
+              <span class="star" data-star="2">★</span>
+              <span class="star" data-star="3">★</span>
+              <span class="star" data-star="4">★</span>
+              <span class="star" data-star="5">★</span>
+            </div>
+            <span id="editStarLabel" style="font-size: 11px; color: var(--muted);">–</span>
+          </div>
+          <input type="hidden" id="editRating" value="0">
+        </div>
+      </div>
+
+      <label class="label">Status</label>
+      <select id="editStatus" class="input-field">
+        <option value="new">🆕 Neu</option>
+        <option value="called">☎️ Angerufen</option>
+        <option value="inprogress">⏳ In Bearbeitung</option>
+        <option value="preselected">✅ Vorselektiert</option>
+        <option value="mailsend">📧 Mail senden</option>
+        <option value="mailtonewcontact">📨 Mail an neue Kontaktperson</option>
+        <option value="response">💬 Antwort</option>
+        <option value="followup">🔄 Followup</option>
+        <option value="callstoday">📞 Calls Today</option>
+        <option value="followuptoday">🔔 Followup Today</option>
+        <option value="notreached">📵 Nicht erreicht</option>
+        <option value="nointerest">🚫 Nicht interessiert</option>
+        <option value="nokeinbedarf">💤 Aktuell kein Bedarf</option>
+        <option value="won">🏆 Gewonnen</option>
+        <option value="vrmail_gesendet">🎥 VR Mail gesendet</option>
+        <option value="vrfollowup1">🔁 VR Followup 1</option>
+        <option value="vrfollowup2">🔁 VR Followup 2</option>
+        <option value="vrfollowup3">🔁 VR Followup 3</option>
+        <option value="vrtoday">🎥 VR Rundgang heute</option>
+      </select>
+
+      <label class="label" style="margin-top: 12px;">Zustaendige Person</label>
+      <select id="editMemberSelect" class="input-field">
+        <option value="">Nicht zugewiesen</option>
+      </select>
+
+      <div style="margin-top: 12px;">
+        <div class="label">Weitere Ansprechpartner</div>
+        <div id="editRelatedContacts" style="display: flex; gap: 6px; flex-wrap: wrap;"></div>
+      </div>
+
+      <label class="label">Notizen Historie</label>
+      <div id="editNotesHistory" style="max-height: 200px; overflow-y: auto; margin-bottom: 12px; border: 1px solid var(--line); border-radius: 8px; padding: 12px; background: rgba(0,0,0,.1);">
+        <div style="color: var(--muted); font-size: 11px; text-align: center;">Keine Notizen vorhanden</div>
+      </div>
+      <label class="label">Neue Notiz hinzufügen</label>
+      <textarea id="editNotes" class="input-field" placeholder="Neue Notiz..." style="min-height: 60px;"></textarea>
+      <button class="btn primary" id="btnAddNote" style="width: 100%; margin-top: 8px;">➕ Notiz speichern</button>
+
+      <!-- TAGS -->
+      <label class="label">Tags</label>
+      <div id="editTagsContainer" style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px;"></div>
+      <select id="editTagSelect" class="input-field" style="margin-bottom: 16px;">
+        <option value="">+ Tag hinzufügen...</option>
+      </select>
+
+      <!-- FOLLOWUP FELDER (sichtbar nur bei Status "Followup") -->
+      <div id="followupFieldsContainer" style="display: none; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line);">
+        <h4 style="margin: 0 0 12px 0; font-size: 13px; font-weight: 600;">🔄 Followup Details</h4>
+        <div class="two-col">
+          <div>
+            <label class="label">Email gesendet am</label>
+            <input type="date" id="editEmailSentDate" class="input-field">
+          </div>
+          <div>
+            <label class="label">Antwort erhalten am</label>
+            <input type="date" id="editAnswerReceivedDate" class="input-field">
+          </div>
+        </div>
+        <div>
+          <label class="label">Followup-Anruf geplant am</label>
+          <input type="date" id="editFollowupCallDate" class="input-field">
+        </div>
+      </div>
+
+      <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line);">
+        <h4 style="margin: 0 0 12px 0; font-size: 13px; font-weight: 600;">💼 Deal / Opportunity</h4>
+        <div class="two-col">
+          <div>
+            <label class="label">Stage</label>
+            <select id="editDealStage" class="input-field">
+              <option value="">–</option>
+              <option value="prospecting">Prospecting</option>
+              <option value="qualified">Qualified</option>
+              <option value="meeting">Meeting</option>
+              <option value="proposal">Proposal</option>
+              <option value="won">Won</option>
+              <option value="lost">Lost</option>
+            </select>
+          </div>
+          <div>
+            <label class="label">Wert (CHF)</label>
+            <input type="number" id="editDealValue" class="input-field" placeholder="5000">
+          </div>
+        </div>
+        <div class="two-col">
+          <div>
+            <label class="label">Wahrscheinlichkeit %</label>
+            <input type="number" id="editDealProbability" class="input-field" placeholder="30">
+          </div>
+          <div>
+            <label class="label">Close Date</label>
+            <input type="date" id="editDealCloseDate" class="input-field">
+          </div>
+        </div>
+        <div id="editDealOutcomeContainer" style="display: none; margin-top: 8px;">
+          <label class="label">Outcome Grund</label>
+          <select id="editDealOutcomeReason" class="input-field">
+            <option value="">– Bitte waehlen –</option>
+            <option value="closed_won">Gewonnen</option>
+            <option value="competitor">Wettbewerber</option>
+            <option value="budget">Budget</option>
+            <option value="timing">Timing</option>
+            <option value="no_fit">Kein Fit</option>
+            <option value="no_decision">Keine Entscheidung</option>
+            <option value="no_response">Keine Rueckmeldung</option>
+            <option value="other">Sonstiges</option>
+          </select>
+          <label class="label" id="editDealOutcomeNoteLabel">Outcome Notiz</label>
+          <textarea id="editDealOutcomeNote" class="input-field" placeholder="Details zum Ergebnis..." style="min-height: 70px;"></textarea>
+        </div>
+      </div>
+
+      <button class="btn primary" id="btnConvertToLead" style="width: 100%; margin-top: 12px;">🚀 Als Lead (LinkedIn)</button>
+
+      <!-- VR FELDER -->
+      <div id="vrFieldsContainer" style="display:none; margin-top:16px; padding-top:16px; border-top:1px solid var(--line);">
+        <h4 style="margin:0 0 12px 0; font-size:13px; font-weight:600;">🎥 Virtueller Rundgang</h4>
+        <div class="two-col">
+          <div>
+            <label class="label">Projektname</label>
+            <input type="text" id="editVrProjekt" class="input-field" placeholder="z.B. Residenz am Park">
+          </div>
+          <div>
+            <label class="label">Wohnungsname</label>
+            <input type="text" id="editVrWohnung" class="input-field" placeholder="z.B. Wohnung A1.02">
+          </div>
+        </div>
+        <div class="two-col">
+          <div>
+            <label class="label">Anzahl Punkte</label>
+            <input type="number" id="editVrPunkte" class="input-field" min="1" placeholder="1">
+          </div>
+          <div>
+            <label class="label">Datum Mail gesendet</label>
+            <input type="date" id="editVrMailSentDate" class="input-field">
+          </div>
+        </div>
+        <div class="two-col">
+          <div>
+            <label class="label">Datum FU 1 (auto)</label>
+            <input type="date" id="editVrFollowup1Date" class="input-field" readonly style="background:rgba(0,0,0,.04);">
+          </div>
+          <div>
+            <label class="label">Datum FU 2 (auto)</label>
+            <input type="date" id="editVrFollowup2Date" class="input-field" readonly style="background:rgba(0,0,0,.04);">
+          </div>
+        </div>
+        <div>
+          <label class="label">Datum FU 3 (auto)</label>
+          <input type="date" id="editVrFollowup3Date" class="input-field" readonly style="background:rgba(0,0,0,.04);">
+        </div>
+        <button id="btnVrHeute" class="btn" style="width:100%; margin-top:8px; border-color:#0ea5e9; color:#0ea5e9; display:none;">🎥 VR Heute (Status setzen)</button>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px;">
+        <button class="btn good" id="btnSaveContact" style="width: 100%;">💾 Speichern</button>
+        <button class="btn" id="btnDeleteContact" style="width: 100%;">🗑️ Löschen</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal für Duplicate Merge: Hauptniederlassung wählen -->
+
+  <!-- LI Snapshot Modal -->
+  <div id="liSnapshotModal" class="modal">
+    <div class="modal-content" style="max-width:420px;">
+      <div class="modal-header">
+        <h2 id="liSnapshotModalTitle">Follower Snapshot</h2>
+        <button onclick="closeLiSnapshotModal()" class="modal-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="liSnapshotEditId">
+        <input type="hidden" id="liSnapshotProfile">
+        <div style="display:grid; gap:12px;">
+          <div>
+            <label class="label">Datum *</label>
+            <input type="date" id="liSnapshotDate" class="input-field" style="width:100%;">
+          </div>
+          <div>
+            <label class="label" id="liSnapshotCountLabel">Follower *</label>
+            <input type="number" id="liSnapshotCount" class="input-field" placeholder="Anzahl" style="width:100%;" min="0">
+          </div>
+          <div>
+            <label class="label">Notizen</label>
+            <input type="text" id="liSnapshotNotes" class="input-field" placeholder="z.B. Nach Kampagne, Monatsmessung..." style="width:100%;">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="closeLiSnapshotModal()">Abbrechen</button>
+        <button class="btn primary" onclick="saveLiSnapshot()">💾 Speichern</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- LI Post Modal -->
+  <div id="liPostModal" class="modal">
+    <div class="modal-content" style="max-width:540px;">
+      <div class="modal-header">
+        <h2 id="liPostModalTitle">Post erfassen</h2>
+        <button onclick="closeLiPostModal()" class="modal-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="liPostEditId">
+        <input type="hidden" id="liPostProfile">
+        <div style="display:grid; gap:12px;">
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+            <div>
+              <label class="label">Datum *</label>
+              <input type="date" id="liPostDate" class="input-field" style="width:100%;">
+            </div>
+            <div>
+              <label class="label">Format</label>
+              <select id="liPostFormat" class="input-field" style="width:100%;">
+                <option value="text">📝 Text</option>
+                <option value="bild">🖼️ Bild</option>
+                <option value="video">🎬 Video</option>
+                <option value="artikel">📰 Artikel</option>
+                <option value="dokument">📄 Dokument/PDF</option>
+                <option value="carousel">🎠 Karussell</option>
+                <option value="umfrage">📊 Umfrage</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label class="label">Titel / Thema *</label>
+            <input type="text" id="liPostTitle" class="input-field" placeholder="Worum geht es in diesem Post?" style="width:100%;">
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;">
+            <div>
+              <label class="label">Impressionen</label>
+              <input type="number" id="liPostImpressions" class="input-field" placeholder="0" style="width:100%;" min="0">
+            </div>
+            <div>
+              <label class="label">Klicks</label>
+              <input type="number" id="liPostClicks" class="input-field" placeholder="0" style="width:100%;" min="0">
+            </div>
+            <div>
+              <label class="label">Likes</label>
+              <input type="number" id="liPostLikes" class="input-field" placeholder="0" style="width:100%;" min="0">
+            </div>
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+            <div>
+              <label class="label">Kommentare</label>
+              <input type="number" id="liPostComments" class="input-field" placeholder="0" style="width:100%;" min="0">
+            </div>
+            <div>
+              <label class="label">Shares / Reposts</label>
+              <input type="number" id="liPostShares" class="input-field" placeholder="0" style="width:100%;" min="0">
+            </div>
+          </div>
+          <div>
+            <label class="label">Notizen</label>
+            <textarea id="liPostNotes" class="input-field" rows="2" placeholder="z.B. Top-Thema, genutzte Hashtags, Learnings..." style="width:100%;resize:vertical;"></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="closeLiPostModal()">Abbrechen</button>
+        <button class="btn primary" onclick="saveLiPost()">💾 Speichern</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Task Modal -->
+  <div id="taskModal" class="modal">
+    <div class="modal-content" style="max-width:520px;">
+      <div class="modal-header">
+        <h2 id="taskModalTitle">Neue Aufgabe</h2>
+        <button onclick="closeTaskModal()" class="modal-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="taskEditId">
+        <div style="display:grid; gap:12px;">
+          <div>
+            <label class="label">Typ *</label>
+            <select id="taskType" class="input-field" style="width:100%;" onchange="toggleTaskEventFields()">
+              <option value="liUnternehmen">🏢 LinkedIn Unternehmen</option>
+              <option value="liPersoenlich">👤 LinkedIn Persönlich</option>
+              <option value="blog">📝 Blog</option>
+              <option value="event">🎪 Event</option>
+              <option value="sonstiges">📋 Sonstiges</option>
+            </select>
+          </div>
+          <div>
+            <label class="label">Titel *</label>
+            <input type="text" id="taskTitle" class="input-field" placeholder="Titel der Aufgabe" style="width:100%;">
+          </div>
+          <div>
+            <label class="label">Beschreibung</label>
+            <textarea id="taskDescription" class="input-field" rows="2" placeholder="Kurzbeschreibung..." style="width:100%;resize:vertical;"></textarea>
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+            <div>
+              <label class="label">Status</label>
+              <select id="taskStatus" class="input-field" style="width:100%;">
+                <option value="idee">💡 Idee</option>
+                <option value="geplant">📅 Geplant</option>
+                <option value="inbearbeitung">⚙️ In Bearbeitung</option>
+                <option value="erledigt">✅ Erledigt</option>
+                <option value="abgesagt">❌ Abgesagt</option>
+              </select>
+            </div>
+            <div>
+              <label class="label">Priorität</label>
+              <select id="taskPriority" class="input-field" style="width:100%;">
+                <option value="hoch">🔴 Hoch</option>
+                <option value="mittel" selected>🟡 Mittel</option>
+                <option value="tief">🟢 Tief</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label class="label">Fälligkeitsdatum</label>
+            <input type="date" id="taskDueDate" class="input-field" style="width:100%;">
+          </div>
+          <div id="taskEventFields" style="display:none; grid-template-columns:1fr 1fr; gap:12px;">
+            <div>
+              <label class="label">Event-Datum</label>
+              <input type="date" id="taskEventDate" class="input-field" style="width:100%;">
+            </div>
+            <div>
+              <label class="label">Ort</label>
+              <input type="text" id="taskEventLocation" class="input-field" placeholder="Ort des Events" style="width:100%;">
+            </div>
+          </div>
+          <div>
+            <label class="label">Notizen</label>
+            <textarea id="taskNotes" class="input-field" rows="2" placeholder="Weitere Notizen..." style="width:100%;resize:vertical;"></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="closeTaskModal()">Abbrechen</button>
+        <button class="btn primary" onclick="saveTaskFromModal()">💾 Speichern</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="mergeDuplicatesModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Doubletten zusammenführen</h2>
+        <button onclick="closeMergeDuplicatesModal()" class="modal-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="mergeSelectedCompanies" style="margin-bottom: 16px;"></div>
+        
+        <div style="margin-bottom: 16px;">
+          <label class="label" style="font-weight: bold;">Wähle die Hauptniederlassung (Master)</label>
+          <p style="font-size: 12px; color: var(--muted); margin-bottom: 8px;">Alle anderen Adressen werden zu dieser Firma hinzugefügt.</p>
+          <select id="mergeMainBranchSelect" class="input-field" style="width: 100%;"></select>
+        </div>
+
+        <div style="background: var(--accent-soft); padding: 12px; border-radius: 6px; margin-bottom: 16px;">
+          <div style="font-size: 12px; color: var(--accent);">
+            <strong>Folgende Adressen werden zusammengeführt:</strong>
+            <div id="mergeBranchesPreview" style="margin-top: 8px;"></div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="modal-footer">
+        <button class="btn" onclick="closeMergeDuplicatesModal()">Abbrechen</button>
+        <button class="btn primary" onclick="mergeDuplicateCompaniesConfirmed()">✅ Zusammenführen</button>
+      </div>
+    </div>
+  </div>
+
+
+  <script src="app.js"></script>
+  <script src="views/matkon.js"></script>
+  <script type="module" src="firebase.js"></script>
+</body>
+</html>

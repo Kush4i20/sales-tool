@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="de-CH">
+<head>
+  <meta charset="utf-8">
+  <title>Power Hour – Migration zu Org-Struktur</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #111; color: #f5f5f5; padding: 32px; max-width: 700px; margin: 0 auto; }
+    h1 { color: #f59e0b; }
+    .card { background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+    input, select { width: 100%; padding: 10px 12px; background: #222; border: 1px solid #333; color: #f5f5f5; border-radius: 8px; font-size: 14px; margin: 6px 0 14px 0; box-sizing: border-box; }
+    button { padding: 12px 20px; border-radius: 8px; border: none; cursor: pointer; font-size: 14px; font-weight: 600; margin-top: 8px; }
+    .btn-primary { background: #f59e0b; color: #1a1a1a; }
+    .btn-danger { background: rgba(239,68,68,.2); border: 1px solid #ef4444; color: #ef4444; }
+    .log { background: #0a0a0a; border: 1px solid #2a2a2a; border-radius: 8px; padding: 14px; font-family: monospace; font-size: 12px; max-height: 300px; overflow-y: auto; white-space: pre-wrap; }
+    .ok { color: #10b981; }
+    .warn { color: #f59e0b; }
+    .err { color: #ef4444; }
+    label { font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: .05em; }
+    .step { padding: 8px 12px; border-left: 3px solid #f59e0b; margin-bottom: 8px; font-size: 13px; }
+  </style>
+</head>
+<body>
+
+<h1>🔄 Migration: Per-User → Org-Struktur</h1>
+<p style="color:#6b7280;font-size:13px;">Dieses Skript kopiert alle bestehenden Daten aus dem alten <code>users/{adminUid}/</code> Pfad in die neue gemeinsame <code>orgs/{orgId}/</code> Struktur. Führe dies einmalig als Admin aus.</p>
+
+<div class="card">
+  <h3>Schritt 1 – Anmelden als Admin</h3>
+  <label>Email</label>
+  <input type="email" id="adminEmail" placeholder="admin@firma.ch">
+  <label>Passwort</label>
+  <input type="password" id="adminPassword" placeholder="Passwort">
+  <button class="btn-primary" onclick="doLogin()">🔓 Anmelden</button>
+  <div id="loginStatus" style="margin-top:10px;font-size:13px;"></div>
+</div>
+
+<div class="card" id="step2" style="display:none;">
+  <h3>Schritt 2 – Org-ID festlegen</h3>
+  <div class="step">Die Org-ID ist ein eindeutiger Bezeichner für euer Team (z.B. "livetour"). Alle Benutzer müssen dieselbe Org-ID haben.</div>
+  <label>Org-ID (Kleinbuchstaben, keine Leerzeichen)</label>
+  <input type="text" id="orgIdInput" value="livetour" placeholder="livetour">
+  <label>Dein Firebase User-ID (wird automatisch erkannt)</label>
+  <input type="text" id="adminUidDisplay" readonly style="background:#111;opacity:.7;">
+</div>
+
+<div class="card" id="step3" style="display:none;">
+  <h3>Schritt 3 – Migration starten</h3>
+  <div class="step">Was passiert:</div>
+  <ul style="font-size:13px;color:#aaa;margin-left:20px;">
+    <li>Alle Daten von <code>users/{adminUid}/</code> werden nach <code>orgs/{orgId}/</code> kopiert</li>
+    <li><code>users/{adminUid}/orgId</code> wird gesetzt</li>
+    <li><code>users/{adminUid}/role</code> wird auf "admin" gesetzt</li>
+    <li>Die alten Daten bleiben als Backup erhalten</li>
+  </ul>
+  <button class="btn-primary" onclick="startMigration()">▶️ Migration starten</button>
+</div>
+
+<div class="card" id="step4" style="display:none;">
+  <h3>Schritt 4 – Weitere User zuweisen</h3>
+  <div class="step">Trage hier die Firebase-UIDs aller anderen Team-Mitglieder ein, um sie dieser Org zuzuweisen.</div>
+  <label>Firebase UID des Users</label>
+  <input type="text" id="newUserUid" placeholder="Firebase UID (aus Firebase Console)">
+  <label>Rolle</label>
+  <select id="newUserRole">
+    <option value="user">User</option>
+    <option value="manager">Manager</option>
+    <option value="admin">Admin</option>
+  </select>
+  <button class="btn-primary" onclick="assignUserToOrg()">👤 User zuweisen</button>
+</div>
+
+<div class="card">
+  <h3>Log</h3>
+  <div class="log" id="log">Bereit. Bitte zuerst anmelden.</div>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-app.js";
+  import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-auth.js";
+  import { getDatabase, ref, get, set } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBDFNel-aihRzmfOn_bEYuhbnp2euiXDF0",
+    authDomain: "powerhour-8890a.firebaseapp.com",
+    databaseURL: "https://powerhour-8890a-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "powerhour-8890a",
+    storageBucket: "powerhour-8890a.firebasestorage.app",
+    messagingSenderId: "533667633971",
+    appId: "1:533667633971:web:670bd8a42e9a3eb0d7bc46"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getDatabase(app);
+
+  let currentUser = null;
+
+  function log(msg, type = '') {
+    const el = document.getElementById('log');
+    const cls = type === 'ok' ? 'ok' : type === 'warn' ? 'warn' : type === 'err' ? 'err' : '';
+    el.innerHTML += `<span class="${cls}">${new Date().toLocaleTimeString()} – ${msg}</span>\n`;
+    el.scrollTop = el.scrollHeight;
+  }
+
+  window.doLogin = async () => {
+    const email = document.getElementById('adminEmail').value.trim();
+    const password = document.getElementById('adminPassword').value.trim();
+    if (!email || !password) { log('❌ Email und Passwort erforderlich', 'err'); return; }
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      log('✅ Login erfolgreich', 'ok');
+    } catch (e) {
+      log('❌ Login fehlgeschlagen: ' + e.message, 'err');
+    }
+  };
+
+  onAuthStateChanged(auth, (user) => {
+    currentUser = user;
+    if (user) {
+      document.getElementById('loginStatus').innerHTML = `<span style="color:#10b981">✅ Angemeldet als: ${user.email} (UID: ${user.uid})</span>`;
+      document.getElementById('adminUidDisplay').value = user.uid;
+      document.getElementById('step2').style.display = 'block';
+      document.getElementById('step3').style.display = 'block';
+      document.getElementById('step4').style.display = 'block';
+    }
+  });
+
+  window.startMigration = async () => {
+    if (!currentUser) { log('❌ Bitte erst anmelden', 'err'); return; }
+    const orgId = document.getElementById('orgIdInput').value.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+    if (!orgId) { log('❌ Ungültige Org-ID', 'err'); return; }
+
+    log(`▶️ Starte Migration für Org: "${orgId}" mit Admin UID: ${currentUser.uid}`);
+
+    try {
+      // Load admin's data
+      log('📥 Lade Daten von users/' + currentUser.uid + '/ ...');
+      const snap = await get(ref(db, `users/${currentUser.uid}`));
+      const userData = snap.val();
+      if (!userData) { log('⚠️ Keine Daten unter users/' + currentUser.uid + ' gefunden', 'warn'); return; }
+
+      // Collections to migrate to org level
+      const collectionsToMigrate = ['contacts', 'calls', 'tags', 'companies', 'leads', 'deals',
+        'activities', 'templates', 'sequences', 'members', 'tasks', 'liSnapshots', 'liPosts',
+        'weeklyGoals', 'weeklyChecklist', 'userAccounts'];
+
+      // Write org config
+      await set(ref(db, `orgs/${orgId}/config`), {
+        name: userData.settings?.company || orgId,
+        createdAt: new Date().toISOString(),
+        createdBy: currentUser.uid
+      });
+      log(`✅ Org-Config erstellt`, 'ok');
+
+      // Migrate each collection
+      for (const col of collectionsToMigrate) {
+        if (userData[col] !== undefined && userData[col] !== null) {
+          await set(ref(db, `orgs/${orgId}/${col}`), userData[col]);
+          log(`  ✅ ${col} → orgs/${orgId}/${col}`, 'ok');
+        } else {
+          log(`  ⏭ ${col}: keine Daten, übersprungen`, 'warn');
+        }
+      }
+
+      // Set orgId + role for admin user
+      await set(ref(db, `users/${currentUser.uid}/orgId`), orgId);
+      await set(ref(db, `users/${currentUser.uid}/role`), 'admin');
+      log(`✅ users/${currentUser.uid}/orgId = "${orgId}"`, 'ok');
+      log(`✅ users/${currentUser.uid}/role = "admin"`, 'ok');
+
+      log(`\n✅ Migration erfolgreich abgeschlossen!`, 'ok');
+      log(`\n📌 Nächste Schritte:`, 'ok');
+      log(`  1. Weise alle anderen User dieser Org zu (Schritt 4)`, 'ok');
+      log(`  2. Öffne die App unter index.html`, 'ok');
+      log(`  3. Verifiziere, dass alle Daten unter orgs/${orgId}/ vorhanden sind (Firebase Console)`, 'ok');
+
+    } catch (e) {
+      log('❌ Migration fehlgeschlagen: ' + e.message, 'err');
+      console.error(e);
+    }
+  };
+
+  window.assignUserToOrg = async () => {
+    if (!currentUser) { log('❌ Bitte erst anmelden', 'err'); return; }
+    const uid = document.getElementById('newUserUid').value.trim();
+    const role = document.getElementById('newUserRole').value;
+    const orgId = document.getElementById('orgIdInput').value.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+    if (!uid) { log('❌ Firebase UID erforderlich', 'err'); return; }
+    if (!orgId) { log('❌ Org-ID erforderlich', 'err'); return; }
+    try {
+      await set(ref(db, `users/${uid}/orgId`), orgId);
+      await set(ref(db, `users/${uid}/role`), role);
+      log(`✅ User ${uid} → Org "${orgId}", Rolle: ${role}`, 'ok');
+    } catch (e) {
+      log(`❌ Fehler: ${e.message}`, 'err');
+    }
+  };
+</script>
+</body>
+</html>
