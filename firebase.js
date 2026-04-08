@@ -613,111 +613,119 @@ onAuthStateChanged(auth, async (user) => {
       });
 
       // Step 3: Subscribe to ALL shared org collections
+      // Helper: on first load, if Firebase is empty but localStorage has data → auto-sync up.
+      // This prevents "empty Firebase wipes local cache" data loss on first login.
+      function makeSyncHandler(fbPath, localKey, stateKey, renderFns, normalizer) {
+        let initialized = false;
+        return {
+          handler: (snapshot) => {
+            const raw = snapshot.val();
+            let remoteList = normalizeFirebaseArray(raw);
+            if (normalizer) remoteList = remoteList.map(normalizer).filter(Boolean);
+
+            if (!initialized && remoteList.length === 0) {
+              // Firebase is empty on first load — check if local cache has data
+              try {
+                const local = JSON.parse(localStorage.getItem(localKey) || '[]');
+                if (local.length > 0) {
+                  // Auto-sync local → Firebase (restores unsync'd data)
+                  set(ref(db, fbPath), local).catch(e => console.error(`Auto-sync ${stateKey} error:`, e));
+                  console.info(`[Firebase] Auto-synced ${local.length} ${stateKey} from localStorage → Firebase`);
+                  state[stateKey] = local;
+                  initialized = true;
+                  renderFns.forEach(fn => fn?.());
+                  return;
+                }
+              } catch (_) {}
+            }
+            initialized = true;
+            state[stateKey] = remoteList;
+            localStorage.setItem(localKey, JSON.stringify(remoteList));
+            renderFns.forEach(fn => fn?.());
+          }
+        };
+      }
+
       // contacts
-      onValue(ref(db, `orgs/${orgId}/contacts`), (snapshot) => {
-        const remoteList = normalizeFirebaseArray(snapshot.val());
-        state.contacts = remoteList;
-        localStorage.setItem('phcontacts', JSON.stringify(state.contacts));
-        renderKontakte?.();
-        renderContactsTable?.();
-        renderStats?.();
-        updateKontakteStats?.();
-      }, (e) => console.error('Firebase contacts error:', e));
+      onValue(ref(db, `orgs/${orgId}/contacts`),
+        makeSyncHandler(`orgs/${orgId}/contacts`, 'phcontacts', 'contacts', [
+          () => renderKontakte?.(), () => renderContactsTable?.(),
+          () => renderStats?.(), () => updateKontakteStats?.()
+        ]).handler,
+        (e) => console.error('Firebase contacts error:', e));
 
       // calls
-      onValue(ref(db, `orgs/${orgId}/calls`), (snapshot) => {
-        const remoteList = normalizeFirebaseArray(snapshot.val()).map(normalizeCallEntry).filter(Boolean);
-        state.callLog = remoteList;
-        localStorage.setItem('phlog', JSON.stringify(state.callLog));
-        renderSessionLog?.();
-        renderAnalytics?.();
-      }, (e) => console.error('Firebase calls error:', e));
+      onValue(ref(db, `orgs/${orgId}/calls`),
+        makeSyncHandler(`orgs/${orgId}/calls`, 'phlog', 'callLog', [
+          () => renderSessionLog?.(), () => renderAnalytics?.()
+        ], normalizeCallEntry).handler,
+        (e) => console.error('Firebase calls error:', e));
 
       // tags
-      onValue(ref(db, `orgs/${orgId}/tags`), (snapshot) => {
-        const remoteList = normalizeFirebaseArray(snapshot.val());
-        state.tags = remoteList;
-        localStorage.setItem('phtags', JSON.stringify(state.tags));
-        renderTagsList?.();
-        renderTagFilter?.();
-        renderEditTagSelect?.();
-        renderKontakte?.();
-      }, (e) => console.error('Firebase tags error:', e));
+      onValue(ref(db, `orgs/${orgId}/tags`),
+        makeSyncHandler(`orgs/${orgId}/tags`, 'phtags', 'tags', [
+          () => renderTagsList?.(), () => renderTagFilter?.(),
+          () => renderEditTagSelect?.(), () => renderKontakte?.()
+        ]).handler,
+        (e) => console.error('Firebase tags error:', e));
 
       // companies
-      onValue(ref(db, `orgs/${orgId}/companies`), (snapshot) => {
-        const remoteList = normalizeFirebaseArray(snapshot.val());
-        state.companies = remoteList;
-        localStorage.setItem('phcompanies', JSON.stringify(state.companies));
-        renderCompaniesTable?.();
-        renderCompanyOptions?.();
-        renderLeadOptions?.();
-      }, (e) => console.error('Firebase companies error:', e));
+      onValue(ref(db, `orgs/${orgId}/companies`),
+        makeSyncHandler(`orgs/${orgId}/companies`, 'phcompanies', 'companies', [
+          () => renderCompaniesTable?.(), () => renderCompanyOptions?.(), () => renderLeadOptions?.()
+        ]).handler,
+        (e) => console.error('Firebase companies error:', e));
 
       // leads
-      onValue(ref(db, `orgs/${orgId}/leads`), (snapshot) => {
-        const remoteList = normalizeFirebaseArray(snapshot.val());
-        state.leads = remoteList;
-        localStorage.setItem('phleads', JSON.stringify(state.leads));
-        renderLeadsTable?.();
-        renderOutreachContactOptions?.();
-        renderLeadOptions?.();
-        renderAnalytics?.();
-      }, (e) => console.error('Firebase leads error:', e));
+      onValue(ref(db, `orgs/${orgId}/leads`),
+        makeSyncHandler(`orgs/${orgId}/leads`, 'phleads', 'leads', [
+          () => renderLeadsTable?.(), () => renderOutreachContactOptions?.(),
+          () => renderLeadOptions?.(), () => renderAnalytics?.()
+        ]).handler,
+        (e) => console.error('Firebase leads error:', e));
 
       // deals
-      onValue(ref(db, `orgs/${orgId}/deals`), (snapshot) => {
-        const remoteList = normalizeFirebaseArray(snapshot.val());
-        state.deals = remoteList;
-        localStorage.setItem('phdeals', JSON.stringify(state.deals));
-        renderDealsTable?.();
-        renderPipelineBoard?.();
-      }, (e) => console.error('Firebase deals error:', e));
+      onValue(ref(db, `orgs/${orgId}/deals`),
+        makeSyncHandler(`orgs/${orgId}/deals`, 'phdeals', 'deals', [
+          () => renderDealsTable?.(), () => renderPipelineBoard?.()
+        ]).handler,
+        (e) => console.error('Firebase deals error:', e));
 
       // activities
-      onValue(ref(db, `orgs/${orgId}/activities`), (snapshot) => {
-        const remoteList = normalizeFirebaseArray(snapshot.val());
-        state.activities = remoteList;
-        localStorage.setItem('phactivities', JSON.stringify(state.activities));
-        renderActivitiesTable?.();
-        renderAnalytics?.();
-      }, (e) => console.error('Firebase activities error:', e));
+      onValue(ref(db, `orgs/${orgId}/activities`),
+        makeSyncHandler(`orgs/${orgId}/activities`, 'phactivities', 'activities', [
+          () => renderActivitiesTable?.(), () => renderAnalytics?.()
+        ]).handler,
+        (e) => console.error('Firebase activities error:', e));
 
       // templates
-      onValue(ref(db, `orgs/${orgId}/templates`), (snapshot) => {
-        const remoteList = normalizeFirebaseArray(snapshot.val());
-        state.templates = remoteList;
-        localStorage.setItem('phtemplates', JSON.stringify(state.templates));
-        renderTemplatesList?.();
-        renderTemplateOptions?.();
-      }, (e) => console.error('Firebase templates error:', e));
+      onValue(ref(db, `orgs/${orgId}/templates`),
+        makeSyncHandler(`orgs/${orgId}/templates`, 'phtemplates', 'templates', [
+          () => renderTemplatesList?.(), () => renderTemplateOptions?.()
+        ]).handler,
+        (e) => console.error('Firebase templates error:', e));
 
       // sequences
-      onValue(ref(db, `orgs/${orgId}/sequences`), (snapshot) => {
-        const remoteList = normalizeFirebaseArray(snapshot.val());
-        state.sequences = remoteList;
-        localStorage.setItem('phsequences', JSON.stringify(state.sequences));
-        renderSequencesList?.();
-      }, (e) => console.error('Firebase sequences error:', e));
+      onValue(ref(db, `orgs/${orgId}/sequences`),
+        makeSyncHandler(`orgs/${orgId}/sequences`, 'phsequences', 'sequences', [
+          () => renderSequencesList?.()
+        ]).handler,
+        (e) => console.error('Firebase sequences error:', e));
 
       // members (shared team members)
-      onValue(ref(db, `orgs/${orgId}/members`), (snapshot) => {
-        const remoteList = normalizeFirebaseArray(snapshot.val());
-        state.members = remoteList;
-        localStorage.setItem('phmembers', JSON.stringify(state.members));
-        renderMembersList?.();
-        renderMemberSwitcher?.();
-        renderMatkonMemberFilters?.();
-      }, (e) => console.error('Firebase members error:', e));
+      onValue(ref(db, `orgs/${orgId}/members`),
+        makeSyncHandler(`orgs/${orgId}/members`, 'phmembers', 'members', [
+          () => renderMembersList?.(), () => renderMemberSwitcher?.(), () => renderMatkonMemberFilters?.()
+        ]).handler,
+        (e) => console.error('Firebase members error:', e));
 
       // tasks
-      onValue(ref(db, `orgs/${orgId}/tasks`), (snapshot) => {
-        const remoteList = normalizeFirebaseArray(snapshot.val());
-        state.tasks = remoteList;
-        localStorage.setItem('phtasks', JSON.stringify(state.tasks));
-        renderTasks?.();
-        if (state.tasksTab === 'analytics') renderTasksAnalytics?.();
-      }, (e) => console.error('Firebase tasks error:', e));
+      onValue(ref(db, `orgs/${orgId}/tasks`),
+        makeSyncHandler(`orgs/${orgId}/tasks`, 'phtasks', 'tasks', [
+          () => renderTasks?.(),
+          () => { if (state.tasksTab === 'analytics') renderTasksAnalytics?.(); }
+        ]).handler,
+        (e) => console.error('Firebase tasks error:', e));
 
       // liSnapshots
       onValue(ref(db, `orgs/${orgId}/liSnapshots`), (snapshot) => {
