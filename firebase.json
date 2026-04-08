@@ -51,8 +51,8 @@
     },
     "hkm": {
       "profiles": {
+        ".read": "auth != null",
         "$uid": {
-          ".read": "auth != null",
           ".write": "$uid === auth.uid || root.child('hkm/profiles').child(auth.uid).child('role').val() === 'admin'"
         }
       },
