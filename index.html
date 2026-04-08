@@ -3,9 +3,10 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Power Hour – Kontakt Manager</title>
+  <title>liveTour CRM</title>
   <link rel="stylesheet" href="css/base.css">
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
 </head>
 <body>
 
@@ -32,7 +33,7 @@
   <div class="sidebar-overlay" id="sidebarOverlay"></div>
   <div class="layout" style="display: none;" id="appLayout">
     <aside class="sidebar" id="sidebar">
-      <div class="sidebar-brand">⚡ Power Hour</div>
+      <div class="sidebar-brand">⚡ liveTour CRM</div>
       <nav class="sidebar-nav">
         <button data-view="kontakte" class="nav-item active"><span class="nav-icon">👤</span> Kontakte</button>
         <button data-view="session" class="nav-item"><span class="nav-icon">📞</span> Session</button>
@@ -42,7 +43,8 @@
         <button data-view="aufgaben" class="nav-item"><span class="nav-icon">📋</span> Aufgaben</button>
         <button data-view="settings" class="nav-item"><span class="nav-icon">⚙️</span> Einstellungen</button>
         <button data-view="vrundgang" class="nav-item"><span class="nav-icon">🎥</span> Virt. Rundgang</button>
-        <button data-view="matkon" class="nav-item"><span class="nav-icon">🐾</span> MatKon</button>
+        <button data-view="matkon" class="nav-item" style="display:none;"><span class="nav-icon">🐾</span> MatKon (alt)</button>
+        <button data-view="hkm" class="nav-item" onclick="window.initHkmOnView?.()"><span class="nav-icon">🐶</span> VisuMat Sales</button>
       </nav>
       <div id="memberSwitcher" style="padding: 10px 12px; border-top: 1px solid var(--line);">
         <div style="font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 8px;">Ansicht als:</div>
@@ -87,23 +89,34 @@
                   </button>
                   <div class="status-filter-menu" id="statusFilterMenu">
                     <div class="status-filter-option" data-status="all">Alle</div>
+                    <div class="status-filter-group-header">Allgemein</div>
                     <div class="status-filter-option" data-status="new">🆕 Neu</div>
-                    <div class="status-filter-option" data-status="lioutboundtoday">🔗 LIO Today</div>
-                    <div class="status-filter-option" data-status="lioutboundfollowup">🔁 LIO Followup</div>
-                    <div class="status-filter-option" data-status="limailgesendet">✉️ LI-Mailgesendet</div>
-                    <div class="status-filter-option" data-status="called">☎️ Angerufen</div>
-                    <div class="status-filter-option" data-status="inprogress">⏳ In Bearbeitung</div>
-                    <div class="status-filter-option" data-status="preselected">✅ Vorselektiert</div>
-                    <div class="status-filter-option" data-status="mailsend">📧 Mail senden</div>
-                    <div class="status-filter-option" data-status="mailtonewcontact">📨 Mail an neue Kontaktperson</div>
-                    <div class="status-filter-option" data-status="response">💬 Antwort</div>
-                    <div class="status-filter-option" data-status="followup">🔄 Followup</div>
                     <div class="status-filter-option" data-status="callstoday">📞 Heute anrufen</div>
-                    <div class="status-filter-option" data-status="followuptoday">🔔 Followup Today</div>
+                    <div class="status-filter-option" data-status="followuptoday">🔔 Followup heute</div>
+                    <div class="status-filter-group-header">Calls</div>
+                    <div class="status-filter-option" data-status="called">☎️ Angerufen</div>
                     <div class="status-filter-option" data-status="notreached">📵 Nicht erreicht</div>
+                    <div class="status-filter-option" data-status="inprogress">⏳ In Bearbeitung</div>
+                    <div class="status-filter-group-header">E-Mail</div>
+                    <div class="status-filter-option" data-status="mailsend">📧 Mail senden</div>
+                    <div class="status-filter-option" data-status="mailtonewcontact">📨 Mail: Neue Kontaktperson</div>
+                    <div class="status-filter-option" data-status="response">💬 Antwort erhalten</div>
+                    <div class="status-filter-option" data-status="preselected">✅ Vorselektiert</div>
+                    <div class="status-filter-option" data-status="followup">🔄 Im Followup</div>
+                    <div class="status-filter-group-header">LinkedIn</div>
+                    <div class="status-filter-option" data-status="lioutboundtoday">🔗 LinkedIn: Heute</div>
+                    <div class="status-filter-option" data-status="lioutboundfollowup">🔁 LinkedIn: Followup</div>
+                    <div class="status-filter-option" data-status="limailgesendet">✉️ LinkedIn: Mail gesendet</div>
+                    <div class="status-filter-group-header">VR-Pipeline</div>
+                    <div class="status-filter-option" data-status="vrmail_gesendet">🎥 VR: Mail gesendet</div>
+                    <div class="status-filter-option" data-status="vrfollowup1">🎥 VR: Followup 1</div>
+                    <div class="status-filter-option" data-status="vrfollowup2">🎥 VR: Followup 2</div>
+                    <div class="status-filter-option" data-status="vrfollowup3">🎥 VR: Followup 3</div>
+                    <div class="status-filter-option" data-status="vrtoday">🎥 VR: Heute</div>
+                    <div class="status-filter-group-header">Abschluss</div>
+                    <div class="status-filter-option" data-status="won">🏆 Gewonnen</div>
                     <div class="status-filter-option" data-status="nointerest">🚫 Kein Interesse</div>
-                    <div class="status-filter-option" data-status="nokeinbedarf">💤 Aktuell kein Bedarf</div>
-                    <div class="status-filter-option" data-status="won">⭐ Gewonnen</div>
+                    <div class="status-filter-option" data-status="nokeinbedarf">💤 Kein Bedarf aktuell</div>
                   </div>
                 </div>
               </div>
@@ -153,11 +166,11 @@
             <div class="filter-tabs" style="margin-top: 14px;">
               <button class="filter-tab active" data-quick-filter="all">Alle</button>
               <button class="filter-tab" data-quick-filter="callstoday">📞 Heute anrufen</button>
-              <button class="filter-tab" data-quick-filter="followuptoday" style="color: #ea580c;">🔔 Followup Today</button>
+              <button class="filter-tab" data-quick-filter="followuptoday" style="color: #ea580c;">🔔 Followup heute</button>
               <button class="filter-tab" data-quick-filter="followup">🔄 Im Followup</button>
-              <button class="filter-tab" data-quick-filter="linkedin">LinkedIn</button>
-              <button class="filter-tab" data-quick-filter="won">Gewonnen</button>
-              <button class="filter-tab" data-quick-filter="vrundgang">🎥 Virt. Rundgang</button>
+              <button class="filter-tab" data-quick-filter="linkedin">🔗 LinkedIn</button>
+              <button class="filter-tab" data-quick-filter="won">🏆 Gewonnen</button>
+              <button class="filter-tab" data-quick-filter="vrundgang">🎥 VR-Pipeline</button>
             </div>
 
             <div class="contacts-grid" id="dashboardGrid">
@@ -171,27 +184,44 @@
           <button class="btn" id="btnSelectAll">Alle markieren</button>
           <button class="btn" id="btnClearSelection">Auswahl löschen</button>
           <button class="btn good" id="btnMarkCallsToday">Heute anrufen</button>
-          <button class="btn" id="btnMarkFollowupToday" style="border-color: #ea580c; color: #ea580c;">🔔 Followup Today</button>
-          <button class="btn" id="btnMarkOutreach">🔗 LIO Today</button>
-          <select id="batchStatusSelect" class="input-field" style="width: 180px; margin: 0;">
+          <button class="btn" id="btnMarkFollowupToday" style="border-color: #ea580c; color: #ea580c;">🔔 Followup heute</button>
+          <button class="btn" id="btnMarkOutreach">🔗 LinkedIn: Heute</button>
+          <select id="batchStatusSelect" class="input-field" style="width: 200px; margin: 0;">
             <option value="">Status setzen...</option>
-            <option value="new">🆕 Neu</option>
-            <option value="lioutboundtoday">🔗 LIO Today</option>
-            <option value="lioutboundfollowup">🔁 LIO Followup</option>
-            <option value="limailgesendet">✉️ LI-Mailgesendet</option>
-            <option value="called">☎️ Angerufen</option>
-            <option value="inprogress">⏳ In Bearbeitung</option>
-            <option value="preselected">✅ Vorselektiert</option>
-            <option value="mailsend">📧 Mail senden</option>
-            <option value="mailtonewcontact">📨 Mail an neue Kontaktperson</option>
-            <option value="response">💬 Antwort</option>
-            <option value="followup">🔄 Followup</option>
-            <option value="callstoday">📞 Heute anrufen</option>
-            <option value="followuptoday">🔔 Followup Today</option>
-            <option value="notreached">📵 Nicht erreicht</option>
-            <option value="nointerest">🚫 Kein Interesse</option>
-            <option value="nokeinbedarf">💤 Aktuell kein Bedarf</option>
-            <option value="won">⭐ Gewonnen</option>
+            <optgroup label="Allgemein">
+              <option value="new">🆕 Neu</option>
+              <option value="callstoday">📞 Heute anrufen</option>
+              <option value="followuptoday">🔔 Followup heute</option>
+            </optgroup>
+            <optgroup label="Calls">
+              <option value="called">☎️ Angerufen</option>
+              <option value="notreached">📵 Nicht erreicht</option>
+              <option value="inprogress">⏳ In Bearbeitung</option>
+            </optgroup>
+            <optgroup label="E-Mail">
+              <option value="mailsend">📧 Mail senden</option>
+              <option value="mailtonewcontact">📨 Mail: Neue Kontaktperson</option>
+              <option value="response">💬 Antwort erhalten</option>
+              <option value="preselected">✅ Vorselektiert</option>
+              <option value="followup">🔄 Im Followup</option>
+            </optgroup>
+            <optgroup label="LinkedIn">
+              <option value="lioutboundtoday">🔗 LinkedIn: Heute</option>
+              <option value="lioutboundfollowup">🔁 LinkedIn: Followup</option>
+              <option value="limailgesendet">✉️ LinkedIn: Mail gesendet</option>
+            </optgroup>
+            <optgroup label="VR-Pipeline">
+              <option value="vrmail_gesendet">🎥 VR: Mail gesendet</option>
+              <option value="vrfollowup1">🎥 VR: Followup 1</option>
+              <option value="vrfollowup2">🎥 VR: Followup 2</option>
+              <option value="vrfollowup3">🎥 VR: Followup 3</option>
+              <option value="vrtoday">🎥 VR: Heute</option>
+            </optgroup>
+            <optgroup label="Abschluss">
+              <option value="won">🏆 Gewonnen</option>
+              <option value="nointerest">🚫 Kein Interesse</option>
+              <option value="nokeinbedarf">💤 Kein Bedarf aktuell</option>
+            </optgroup>
           </select>
           <button class="btn" id="btnBatchSetStatus">Status setzen</button>
           <select id="batchMemberSelect" class="input-field" style="width: 180px; margin: 0; display: none;">
@@ -1501,6 +1531,557 @@
         </div>
       </div><!-- end #matkon -->
 
+      <!-- ═══════════════════════════════════════════════════════════════════ -->
+      <!-- HKM – VISUMAT SALES GAMIFICATION                                    -->
+      <!-- ═══════════════════════════════════════════════════════════════════ -->
+      <div id="hkm" class="section">
+        <div class="main-header">
+          <div>
+            <div class="header-title">🐶 VisuMat Sales</div>
+            <div class="header-sub">Hund-Katze-Maus · Sales-Gamification für das VisuMat-Team</div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn primary" onclick="openHkmLeadModal()">+ Neuer Lead</button>
+          </div>
+        </div>
+
+        <!-- Tab Nav -->
+        <div class="filter-tabs" style="margin-bottom:16px;">
+          <button class="filter-tab active" data-hkm-tab="leaderboard">🏆 Leaderboard</button>
+          <button class="filter-tab" data-hkm-tab="leads">🎯 Leads</button>
+          <button class="filter-tab" data-hkm-tab="analytics">📊 Analytics</button>
+          <button class="filter-tab" data-hkm-tab="challenges">⚔️ Challenges</button>
+          <button class="filter-tab" data-hkm-tab="admin" style="display:none;">⚙️ Admin</button>
+        </div>
+
+        <!-- ── LEADERBOARD ─────────────────────────────────────────────── -->
+        <div id="hkmLeaderboardView">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+            <div id="hkmLeaderboardCards" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;grid-column:1/-1;"></div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+            <div class="card">
+              <div class="card-head"><h3 class="card-title">Aktive Challenge</h3></div>
+              <div id="hkmActiveChallengeBox" class="card-content"></div>
+            </div>
+            <div class="card">
+              <div class="card-head"><h3 class="card-title">Letzte Aktivitäten</h3></div>
+              <div id="hkmRecentActivities" class="card-content"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── LEADS ──────────────────────────────────────────────────── -->
+        <div id="hkmLeadsView" style="display:none;">
+          <div class="card" style="margin-bottom:16px;">
+            <div class="card-content">
+              <div style="display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr;gap:12px;">
+                <div>
+                  <label class="label">Suche</label>
+                  <input type="text" id="hkmLeadsSearch" class="input-field" placeholder="Projektname, Firma..." style="margin:0;">
+                </div>
+                <div>
+                  <label class="label">Status</label>
+                  <select id="hkmLeadsFilterStatus" class="input-field" style="margin:0;">
+                    <option value="">Alle Status</option>
+                    <option value="neu">Neu</option>
+                    <option value="kontaktiert">Kontaktiert</option>
+                    <option value="demo_gebucht">Demo gebucht</option>
+                    <option value="abgeschlossen">Gewonnen</option>
+                    <option value="abgesagt">Abgesagt</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="label">Region</label>
+                  <select id="hkmLeadsFilterRegion" class="input-field" style="margin:0;">
+                    <option value="">Alle Regionen</option>
+                    <option value="zuerich">Zürich/Zug</option>
+                    <option value="zentralschweiz">Zentralschweiz</option>
+                    <option value="nordwestschweiz">Nordwestschweiz</option>
+                    <option value="ostschweiz">Ostschweiz</option>
+                    <option value="bern">Bern/Aargau</option>
+                    <option value="andere">Andere</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="label">Zugewiesen an</label>
+                  <select id="hkmLeadsFilterAssigned" class="input-field" style="margin:0;">
+                    <option value="">Alle Mitarbeiter</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-content" style="overflow-x:auto;">
+              <table>
+                <thead>
+                  <tr style="background:rgba(245,158,11,.06);">
+                    <th>Projektname</th>
+                    <th>Firma / Kontakt</th>
+                    <th>Region</th>
+                    <th>Status</th>
+                    <th>Zugewiesen</th>
+                    <th>Vollständig</th>
+                    <th>Letzte Aktion</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="hkmLeadsBody">
+                  <tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px;">Keine Leads. Erstelle deinen ersten Lead!</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── ANALYTICS ──────────────────────────────────────────────── -->
+        <div id="hkmAnalyticsView" style="display:none;">
+          <div class="card" style="margin-bottom:16px;">
+            <div class="card-content">
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:12px;align-items:flex-end;">
+                <div>
+                  <label class="label">Von</label>
+                  <input type="date" id="hkmAnalyticsFrom" class="input-field" style="margin:0;">
+                </div>
+                <div>
+                  <label class="label">Bis</label>
+                  <input type="date" id="hkmAnalyticsTo" class="input-field" style="margin:0;">
+                </div>
+                <div>
+                  <label class="label">Mitarbeiter</label>
+                  <select id="hkmAnalyticsMember" class="input-field" style="margin:0;">
+                    <option value="">Alle Mitarbeiter</option>
+                  </select>
+                </div>
+                <button class="btn primary" id="hkmAnalyticsApply">Anwenden</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="analytics-kpi-grid" style="margin-bottom:20px;">
+            <div class="analytics-kpi-card"><div class="analytics-kpi-value" id="hkmKpiCalls">0</div><div class="analytics-kpi-label">Calls</div></div>
+            <div class="analytics-kpi-card"><div class="analytics-kpi-value" id="hkmKpiDemos">0</div><div class="analytics-kpi-label">Demos</div></div>
+            <div class="analytics-kpi-card highlight-good"><div class="analytics-kpi-value" id="hkmKpiDeals">0</div><div class="analytics-kpi-label">Deals</div></div>
+            <div class="analytics-kpi-card"><div class="analytics-kpi-value" id="hkmKpiRevenue">CHF 0</div><div class="analytics-kpi-label">Umsatz</div></div>
+            <div class="analytics-kpi-card"><div class="analytics-kpi-value" id="hkmKpiProvision">CHF 0</div><div class="analytics-kpi-label">Provision</div></div>
+            <div class="analytics-kpi-card highlight-bad"><div class="analytics-kpi-value" id="hkmKpiAbsage">0%</div><div class="analytics-kpi-label">Absage-Quote</div></div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+            <div class="card">
+              <div class="card-head"><h3 class="card-title">Absage-Analyse</h3></div>
+              <div class="card-content" id="hkmAbsageChart"></div>
+            </div>
+            <div class="card">
+              <div class="card-head"><h3 class="card-title">Zusage-Analyse</h3></div>
+              <div class="card-content" id="hkmZusageChart"></div>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+            <div class="card">
+              <div class="card-head"><h3 class="card-title">Pakete</h3></div>
+              <div class="card-content" id="hkmPaketChart"></div>
+            </div>
+            <div class="card">
+              <div class="card-head"><h3 class="card-title">Prognose</h3></div>
+              <div class="card-content" id="hkmPrognoseBox"></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head"><h3 class="card-title">Deals / Woche</h3></div>
+            <div class="card-content" id="hkmTimeChart"></div>
+          </div>
+        </div>
+
+        <!-- ── CHALLENGES ─────────────────────────────────────────────── -->
+        <div id="hkmChallengesView" style="display:none;">
+          <div id="hkmChallengesContent"></div>
+        </div>
+
+        <!-- ── ADMIN ──────────────────────────────────────────────────── -->
+        <div id="hkmAdminView" style="display:none;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <h3 style="margin:0;font-size:15px;">Admin-Panel</h3>
+            <div style="display:flex;gap:8px;">
+              <button class="btn" onclick="openHkmTransferModal()">🦴 Knochen Transfer</button>
+            </div>
+          </div>
+          <div class="card" style="margin-bottom:16px;">
+            <div class="card-head"><h3 class="card-title">Mitarbeiter-Profile</h3></div>
+            <div class="card-content" id="hkmAdminProfiles"></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><h3 class="card-title">Monats-Reset</h3></div>
+            <div class="card-content" id="hkmMonthlyReset"></div>
+          </div>
+        </div>
+
+      </div><!-- end #hkm -->
+
+      <!-- HKM Celebration Overlay -->
+      <div id="hkmCelebration" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.93);align-items:center;justify-content:center;cursor:pointer;" onclick="this.style.display='none'">
+      </div>
+
+      <!-- ── HKM MODALS ────────────────────────────────────────────────── -->
+
+      <!-- Lead Detail Modal -->
+      <div id="hkmLeadDetailModal" class="modal" style="display:none;">
+        <div class="modal-content" style="max-width:680px;">
+          <div class="modal-header">
+            <h2 id="hkmDetailProjektTitle">Lead Detail</h2>
+            <button onclick="closeHkmLeadDetail()" class="modal-close">✕</button>
+          </div>
+          <div class="modal-body">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+              <div>
+                <div style="display:grid;gap:8px;">
+                  <div><span class="label">Projektname</span><div id="hkmDetailProjekt" style="font-weight:600;font-size:15px;"></div></div>
+                  <div><span class="label">Firma</span><div id="hkmDetailFirma"></div></div>
+                  <div><span class="label">Kontaktperson</span><div id="hkmDetailKontakt"></div></div>
+                  <div><span class="label">Email</span><div id="hkmDetailEmail"></div></div>
+                  <div><span class="label">Telefon</span><div id="hkmDetailTel"></div></div>
+                  <div><span class="label">URL</span><div id="hkmDetailUrl"></div></div>
+                  <div><span class="label">Region</span><div id="hkmDetailRegion"></div></div>
+                  <div><span class="label">Projekttyp</span><div id="hkmDetailTyp"></div></div>
+                  <div><span class="label">Status</span><div id="hkmDetailStatus"></div></div>
+                  <div><span class="label">Zugewiesen</span><div id="hkmDetailAssigned"></div></div>
+                </div>
+                <div style="margin-top:16px;">
+                  <div class="label">Vollständigkeit</div>
+                  <div id="hkmDetailChecklist"></div>
+                </div>
+              </div>
+              <div>
+                <div style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap;">
+                  <button class="btn" onclick="openHkmActivityModal(state.hkmCurrentLeadId)">📞 Call</button>
+                  <button class="btn" onclick="openHkmActivityModal(state.hkmCurrentLeadId);document.getElementById('hkmActivityType').value='demo';document.getElementById('hkmActTypeDemo').checked=true;hkmToggleActivityFields('demo')">📅 Demo</button>
+                  <button class="btn primary" onclick="openHkmActivityModal(state.hkmCurrentLeadId);document.getElementById('hkmActivityType').value='deal';document.getElementById('hkmActTypeDeal').checked=true;hkmToggleActivityFields('deal')">💰 Deal</button>
+                  <button class="btn" style="border-color:#ef4444;color:#ef4444;" onclick="openHkmActivityModal(state.hkmCurrentLeadId);document.getElementById('hkmActivityType').value='absage';document.getElementById('hkmActTypeAbsage').checked=true;hkmToggleActivityFields('absage')">❌ Absage</button>
+                  <button class="btn" onclick="openHkmLeadModal(state.hkmCurrentLeadId)">✏️ Bearbeiten</button>
+                </div>
+                <div class="label" style="margin-bottom:8px;">Aktivitäten-Verlauf</div>
+                <div id="hkmDetailActivities" style="max-height:380px;overflow-y:auto;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Lead Add/Edit Modal -->
+      <div id="hkmLeadModal" class="modal" style="display:none;">
+        <div class="modal-content" style="max-width:560px;">
+          <div class="modal-header">
+            <h2 id="hkmLeadModalTitle">Neuer Lead</h2>
+            <button onclick="closeHkmLeadModal()" class="modal-close">✕</button>
+          </div>
+          <div class="modal-body">
+            <input type="hidden" id="hkmLeadEditId">
+            <div style="display:grid;gap:12px;">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <div>
+                  <label class="label">Projektname *</label>
+                  <input type="text" id="hkmLeadProjektname" class="input-field" placeholder="z.B. Residenz am Park">
+                </div>
+                <div>
+                  <label class="label">Firma *</label>
+                  <input type="text" id="hkmLeadFirma" class="input-field" placeholder="Firmenname">
+                </div>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <div>
+                  <label class="label">Kontaktperson *</label>
+                  <input type="text" id="hkmLeadKontakt" class="input-field" placeholder="Vorname Nachname">
+                </div>
+                <div>
+                  <label class="label">Region *</label>
+                  <select id="hkmLeadRegion" class="input-field">
+                    <option value="">Region wählen...</option>
+                    <option value="zuerich">Zürich/Zug</option>
+                    <option value="zentralschweiz">Zentralschweiz</option>
+                    <option value="nordwestschweiz">Nordwestschweiz</option>
+                    <option value="ostschweiz">Ostschweiz</option>
+                    <option value="bern">Bern/Aargau</option>
+                    <option value="andere">Andere</option>
+                  </select>
+                </div>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <div>
+                  <label class="label">Email</label>
+                  <input type="email" id="hkmLeadEmail" class="input-field">
+                </div>
+                <div>
+                  <label class="label">Telefon</label>
+                  <input type="tel" id="hkmLeadTel" class="input-field">
+                </div>
+              </div>
+              <div>
+                <label class="label">URL / Projektwebsite</label>
+                <input type="url" id="hkmLeadUrl" class="input-field" placeholder="https://...">
+              </div>
+              <div>
+                <label class="label">Projekttyp</label>
+                <input type="text" id="hkmLeadTyp" class="input-field" placeholder="z.B. Neubau Wohnüberbauung, Bürogebäude...">
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <div>
+                  <label class="label">Zugewiesen an</label>
+                  <select id="hkmLeadAssigned" class="input-field">
+                    <option value="">Nicht zugewiesen</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="label">Status</label>
+                  <select id="hkmLeadStatus" class="input-field">
+                    <option value="neu">Neu</option>
+                    <option value="kontaktiert">Kontaktiert</option>
+                    <option value="demo_gebucht">Demo gebucht</option>
+                    <option value="abgeschlossen">Gewonnen</option>
+                    <option value="abgesagt">Abgesagt</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn" onclick="closeHkmLeadModal()">Abbrechen</button>
+            <button class="btn primary" onclick="saveHkmLeadFromModal()">💾 Speichern</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Activity Modal -->
+      <div id="hkmActivityModal" class="modal" style="display:none;">
+        <div class="modal-content" style="max-width:500px;">
+          <div class="modal-header">
+            <h2>Aktivität erfassen</h2>
+            <button onclick="closeHkmActivityModal()" class="modal-close">✕</button>
+          </div>
+          <div class="modal-body">
+            <div id="hkmActivityLeadName" style="font-size:13px;color:var(--muted);margin-bottom:12px;"></div>
+            <div style="margin-bottom:16px;">
+              <label class="label">Typ</label>
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;">
+                <label class="hkm-type-btn"><input type="radio" name="hkmActType" value="call" id="hkmActTypeCall" checked> 📞 Call</label>
+                <label class="hkm-type-btn"><input type="radio" name="hkmActType" value="demo" id="hkmActTypeDemo"> 📅 Demo</label>
+                <label class="hkm-type-btn"><input type="radio" name="hkmActType" value="deal" id="hkmActTypeDeal"> 💰 Deal</label>
+                <label class="hkm-type-btn"><input type="radio" name="hkmActType" value="absage" id="hkmActTypeAbsage"> ❌ Absage</label>
+              </div>
+              <input type="hidden" id="hkmActivityType" value="call">
+            </div>
+
+            <!-- Call fields -->
+            <div id="hkmFieldsCall">
+              <label class="label">Ergebnis</label>
+              <select id="hkmActivityCallResult" class="input-field">
+                <option value="">Kein Ergebnis</option>
+                <option value="nicht_erreicht">Nicht erreicht</option>
+                <option value="interesse">Interesse</option>
+                <option value="kein_interesse">Kein Interesse</option>
+                <option value="callback">Callback vereinbart</option>
+                <option value="demo_gebucht">Demo gebucht</option>
+              </select>
+            </div>
+
+            <!-- Demo fields -->
+            <div id="hkmFieldsDemo" style="display:none;">
+              <label class="label">Demo-Datum</label>
+              <input type="date" id="hkmActivityDemoDate" class="input-field">
+            </div>
+
+            <!-- Deal fields -->
+            <div id="hkmFieldsDeal" style="display:none;">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+                <div>
+                  <label class="label">Paket *</label>
+                  <select id="hkmActivityPaketName" class="input-field">
+                    <option value="">Paket wählen...</option>
+                    <option value="Visualisierungspaket">Visualisierungspaket</option>
+                    <option value="Full-Service">Full-Service</option>
+                    <option value="Grundriss-Paket">Grundriss-Paket</option>
+                    <option value="Navigator">Navigator</option>
+                    <option value="Visumat MatKon">Visumat MatKon</option>
+                    <option value="Sonstiges">Sonstiges</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="label">Preis (CHF) *</label>
+                  <input type="number" id="hkmActivityPaketPreis" class="input-field" placeholder="z.B. 4500" min="1">
+                </div>
+              </div>
+              <label class="label">Zusage-Kategorie *</label>
+              <select id="hkmActivityZusageKat" class="input-field">
+                <option value="">Kategorie wählen...</option>
+                <option value="preis_leistung">Preis-Leistung</option>
+                <option value="referenzen">Referenzprojekte</option>
+                <option value="beziehung">Bestehende Beziehung</option>
+                <option value="produkt_demo">Demo überzeugt</option>
+                <option value="timing">Richtiges Timing</option>
+                <option value="empfehlung">Empfehlung</option>
+                <option value="sonstiges">Sonstiges</option>
+              </select>
+              <label class="label" style="margin-top:8px;">Zusage-Erläuterung (optional)</label>
+              <input type="text" id="hkmActivityZusageTxt" class="input-field" placeholder="Was hat den Ausschlag gegeben?">
+            </div>
+
+            <!-- Absage fields -->
+            <div id="hkmFieldsAbsage" style="display:none;">
+              <label class="label">Absage-Kategorie</label>
+              <select id="hkmActivityAbsageKat" class="input-field">
+                <option value="">Kategorie wählen...</option>
+                <option value="zu_teuer">Zu teuer</option>
+                <option value="kein_bedarf">Kein Bedarf</option>
+                <option value="kein_interesse">Kein Interesse</option>
+                <option value="schlechtes_timing">Schlechtes Timing</option>
+                <option value="anderer_anbieter">Anderer Anbieter</option>
+                <option value="interner_entscheid">Interner Entscheid</option>
+                <option value="sonstiges">Sonstiges</option>
+              </select>
+              <label class="label" style="margin-top:8px;">Absage-Grund (optional)</label>
+              <input type="text" id="hkmActivityAbsageTxt" class="input-field" placeholder="Details zum Absage-Grund...">
+            </div>
+
+            <label class="label" style="margin-top:12px;">Notizen</label>
+            <textarea id="hkmActivityNotizen" class="input-field" rows="2" placeholder="Kurze Notiz..."></textarea>
+          </div>
+          <div class="modal-footer">
+            <button class="btn" onclick="closeHkmActivityModal()">Abbrechen</button>
+            <button class="btn primary" onclick="saveHkmActivityFromModal()">💾 Speichern</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Challenge Modal -->
+      <div id="hkmChallengeModal" class="modal" style="display:none;">
+        <div class="modal-content" style="max-width:480px;">
+          <div class="modal-header">
+            <h2>Neue Challenge</h2>
+            <button onclick="closeHkmChallengeModal()" class="modal-close">✕</button>
+          </div>
+          <div class="modal-body">
+            <div style="display:grid;gap:12px;">
+              <div>
+                <label class="label">Titel *</label>
+                <input type="text" id="hkmChallengeTitle" class="input-field" placeholder="z.B. Wer hat bis Freitag mehr Demos?">
+              </div>
+              <div>
+                <label class="label">Beschreibung</label>
+                <textarea id="hkmChallengeDesc" class="input-field" rows="2" placeholder="Kurze Erläuterung..."></textarea>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <div>
+                  <label class="label">Typ</label>
+                  <select id="hkmChallengeTyp" class="input-field">
+                    <option value="demos">Meiste Demos</option>
+                    <option value="deals">Meiste Deals</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="label">Knochen-Einsatz</label>
+                  <input type="number" id="hkmChallengeEinsatz" class="input-field" value="5" min="1">
+                </div>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <div>
+                  <label class="label">Start</label>
+                  <input type="date" id="hkmChallengeStart" class="input-field">
+                </div>
+                <div>
+                  <label class="label">Ende</label>
+                  <input type="date" id="hkmChallengeEnd" class="input-field">
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn" onclick="closeHkmChallengeModal()">Abbrechen</button>
+            <button class="btn primary" onclick="saveHkmChallengeFromModal()">Challenge erstellen</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Complete Challenge Modal -->
+      <div id="hkmCompleteChallengeModal" class="modal" style="display:none;">
+        <div class="modal-content" style="max-width:420px;">
+          <div class="modal-header">
+            <h2>Challenge abschliessen</h2>
+            <button onclick="closeHkmCompleteChallengeModal()" class="modal-close">✕</button>
+          </div>
+          <div class="modal-body">
+            <input type="hidden" id="hkmCompleteChallengeId">
+            <div id="hkmCompleteChallengeInfo" style="margin-bottom:16px;"></div>
+            <label class="label">Gewinner bestätigen</label>
+            <select id="hkmCompleteWinner" class="input-field"></select>
+          </div>
+          <div class="modal-footer">
+            <button class="btn" onclick="closeHkmCompleteChallengeModal()">Abbrechen</button>
+            <button class="btn primary" onclick="confirmHkmChallengeComplete()">Abschliessen & Transfer</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Knochen Adjust Modal -->
+      <div id="hkmAdjustModal" class="modal" style="display:none;">
+        <div class="modal-content" style="max-width:380px;">
+          <div class="modal-header">
+            <h2>🦴 Knochen anpassen</h2>
+            <button onclick="closeHkmAdjustModal()" class="modal-close">✕</button>
+          </div>
+          <div class="modal-body">
+            <div style="margin-bottom:12px;">
+              <strong id="hkmAdjustName"></strong> hat aktuell
+              <span style="color:#f59e0b;font-weight:700;" id="hkmAdjustCurrent"></span> 🦴
+            </div>
+            <input type="hidden" id="hkmAdjustUid">
+            <label class="label">Anzahl (negativ = abziehen)</label>
+            <input type="number" id="hkmAdjustAmount" class="input-field" placeholder="z.B. 3 oder -2">
+            <label class="label">Grund *</label>
+            <input type="text" id="hkmAdjustGrund" class="input-field" placeholder="Pflichtfeld">
+          </div>
+          <div class="modal-footer">
+            <button class="btn" onclick="closeHkmAdjustModal()">Abbrechen</button>
+            <button class="btn primary" onclick="saveHkmKnochenAdjust()">Speichern</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Knochen Transfer Modal -->
+      <div id="hkmTransferModal" class="modal" style="display:none;">
+        <div class="modal-content" style="max-width:420px;">
+          <div class="modal-header">
+            <h2>🦴 Knochen Transfer</h2>
+            <button onclick="closeHkmTransferModal()" class="modal-close">✕</button>
+          </div>
+          <div class="modal-body">
+            <div style="display:grid;gap:12px;">
+              <div>
+                <label class="label">Von</label>
+                <select id="hkmTransferVon" class="input-field"></select>
+              </div>
+              <div>
+                <label class="label">An</label>
+                <select id="hkmTransferZu" class="input-field"></select>
+              </div>
+              <div>
+                <label class="label">Anzahl Knochen</label>
+                <input type="number" id="hkmTransferAnzahl" class="input-field" min="1" placeholder="z.B. 5">
+              </div>
+              <div>
+                <label class="label">Grund *</label>
+                <input type="text" id="hkmTransferGrund" class="input-field" placeholder="Pflichtfeld">
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn" onclick="closeHkmTransferModal()">Abbrechen</button>
+            <button class="btn primary" onclick="saveHkmTransfer()">Transfer ausführen</button>
+          </div>
+        </div>
+      </div>
+
   <div id="toast" class="toast"></div>
 
   <div id="irApiModal" class="modal">
@@ -1677,25 +2258,40 @@
 
       <label class="label">Status</label>
       <select id="editStatus" class="input-field">
-        <option value="new">🆕 Neu</option>
-        <option value="called">☎️ Angerufen</option>
-        <option value="inprogress">⏳ In Bearbeitung</option>
-        <option value="preselected">✅ Vorselektiert</option>
-        <option value="mailsend">📧 Mail senden</option>
-        <option value="mailtonewcontact">📨 Mail an neue Kontaktperson</option>
-        <option value="response">💬 Antwort</option>
-        <option value="followup">🔄 Followup</option>
-        <option value="callstoday">📞 Calls Today</option>
-        <option value="followuptoday">🔔 Followup Today</option>
-        <option value="notreached">📵 Nicht erreicht</option>
-        <option value="nointerest">🚫 Nicht interessiert</option>
-        <option value="nokeinbedarf">💤 Aktuell kein Bedarf</option>
-        <option value="won">🏆 Gewonnen</option>
-        <option value="vrmail_gesendet">🎥 VR Mail gesendet</option>
-        <option value="vrfollowup1">🔁 VR Followup 1</option>
-        <option value="vrfollowup2">🔁 VR Followup 2</option>
-        <option value="vrfollowup3">🔁 VR Followup 3</option>
-        <option value="vrtoday">🎥 VR Rundgang heute</option>
+        <optgroup label="Allgemein">
+          <option value="new">🆕 Neu</option>
+          <option value="callstoday">📞 Heute anrufen</option>
+          <option value="followuptoday">🔔 Followup heute</option>
+        </optgroup>
+        <optgroup label="Calls">
+          <option value="called">☎️ Angerufen</option>
+          <option value="notreached">📵 Nicht erreicht</option>
+          <option value="inprogress">⏳ In Bearbeitung</option>
+        </optgroup>
+        <optgroup label="E-Mail">
+          <option value="mailsend">📧 Mail senden</option>
+          <option value="mailtonewcontact">📨 Mail: Neue Kontaktperson</option>
+          <option value="response">💬 Antwort erhalten</option>
+          <option value="preselected">✅ Vorselektiert</option>
+          <option value="followup">🔄 Im Followup</option>
+        </optgroup>
+        <optgroup label="LinkedIn">
+          <option value="lioutboundtoday">🔗 LinkedIn: Heute</option>
+          <option value="lioutboundfollowup">🔁 LinkedIn: Followup</option>
+          <option value="limailgesendet">✉️ LinkedIn: Mail gesendet</option>
+        </optgroup>
+        <optgroup label="VR-Pipeline">
+          <option value="vrmail_gesendet">🎥 VR: Mail gesendet</option>
+          <option value="vrfollowup1">🎥 VR: Followup 1</option>
+          <option value="vrfollowup2">🎥 VR: Followup 2</option>
+          <option value="vrfollowup3">🎥 VR: Followup 3</option>
+          <option value="vrtoday">🎥 VR: Heute</option>
+        </optgroup>
+        <optgroup label="Abschluss">
+          <option value="won">🏆 Gewonnen</option>
+          <option value="nointerest">🚫 Kein Interesse</option>
+          <option value="nokeinbedarf">💤 Kein Bedarf aktuell</option>
+        </optgroup>
       </select>
 
       <label class="label" style="margin-top: 12px;">Zustaendige Person</label>
@@ -2051,6 +2647,16 @@
 
   <script src="app.js"></script>
   <script src="views/matkon.js"></script>
+  <script src="modules/hkm.js"></script>
   <script type="module" src="firebase.js"></script>
+  <script>
+    // HKM activity type radio buttons
+    document.querySelectorAll('input[name="hkmActType"]').forEach(radio => {
+      radio.addEventListener('change', function() {
+        document.getElementById('hkmActivityType').value = this.value;
+        if (typeof hkmToggleActivityFields === 'function') hkmToggleActivityFields(this.value);
+      });
+    });
+  </script>
 </body>
 </html>

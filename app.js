@@ -2357,7 +2357,7 @@
         if (state.quickFilter === 'callstoday') filtered = filtered.filter(c => c.status === 'callstoday');
         if (state.quickFilter === 'followuptoday') filtered = filtered.filter(c => c.status === 'followuptoday');
         if (state.quickFilter === 'followup') filtered = filtered.filter(c => c.status === 'followup' || c.status === 'followuptoday' || ['followup1','followup2','followup3'].includes(c.phase));
-        if (state.quickFilter === 'linkedin') filtered = filtered.filter(c => c.source === 'linkedin' || c.outreachStatus);
+        if (state.quickFilter === 'linkedin') filtered = filtered.filter(c => c.source === 'linkedin' || c.outreachStatus || ['lioutboundtoday','lioutboundfollowup','limailgesendet','lioutbound','LI-Outbound'].includes(c.status));
         if (state.quickFilter === 'won') filtered = filtered.filter(c => c.status === 'won');
         if (state.quickFilter === 'vrundgang') filtered = filtered.filter(c => c.status && c.status.startsWith('vr'));
       }
@@ -2829,36 +2829,43 @@
 
     function getStatusLabel(status) {
       const labels = {
-        new: '🆕 Neu',
-        lioutboundtoday: '🔗 LIO Today',
-        lioutboundfollowup: '🔁 LIO Followup',
-        limailgesendet: '✉️ LI-Mailgesendet',
-        'LI-Outbound': '🔗 LIO Today',
-        'LI-Outbound Today': '🔗 LIO Today',
-        'LIO Today': '🔗 LIO Today',
-        lioutbound: '🔗 LIO Today',
-        'LI-Outbound Followup': '🔁 LIO Followup',
-        'LIO Followup': '🔁 LIO Followup',
-        'LI-Mailgesendet': '✉️ LI-Mailgesendet',
-        'LI-Mail gesendet': '✉️ LI-Mailgesendet',
-        called: '☎️ Angerufen',
-        inprogress: '⏳ In Bearbeitung',
-        preselected: '✅ Vorselektiert',
-        mailsend: '📧 Mail senden',
-        mailtonewcontact: '📨 Mail an neue Kontaktperson',
-        response: '💬 Antwort',
-        followup: '🔄 Followup',
-        callstoday: '📞 Calls Today',
-        followuptoday: '🔔 Followup Today',
-        notreached: '📵 Nicht erreicht',
-        nointerest: '🚫 Nicht interessiert',
-        nokeinbedarf: '💤 Aktuell kein Bedarf',
-        won: '🏆 Gewonnen',
-        vrmail_gesendet: '🎥 VR Mail gesendet',
-        vrfollowup1: '🔁 VR Followup 1',
-        vrfollowup2: '🔁 VR Followup 2',
-        vrfollowup3: '🔁 VR Followup 3',
-        vrtoday: '🎥 VR Rundgang heute'
+        // Allgemein
+        new:              '🆕 Neu',
+        callstoday:       '📞 Heute anrufen',
+        followuptoday:    '🔔 Followup heute',
+        // Calls
+        called:           '☎️ Angerufen',
+        notreached:       '📵 Nicht erreicht',
+        inprogress:       '⏳ In Bearbeitung',
+        // E-Mail / Followup
+        mailsend:         '📧 Mail senden',
+        mailtonewcontact: '📨 Mail: Neue Kontaktperson',
+        response:         '💬 Antwort erhalten',
+        preselected:      '✅ Vorselektiert',
+        followup:         '🔄 Im Followup',
+        // LinkedIn
+        lioutboundtoday:    '🔗 LinkedIn: Heute',
+        lioutboundfollowup: '🔁 LinkedIn: Followup',
+        limailgesendet:     '✉️ LinkedIn: Mail gesendet',
+        // Legacy LinkedIn aliases (read-only, keep for old data)
+        lioutbound:            '🔗 LinkedIn: Heute',
+        'LI-Outbound':         '🔗 LinkedIn: Heute',
+        'LI-Outbound Today':   '🔗 LinkedIn: Heute',
+        'LIO Today':           '🔗 LinkedIn: Heute',
+        'LI-Outbound Followup':'🔁 LinkedIn: Followup',
+        'LIO Followup':        '🔁 LinkedIn: Followup',
+        'LI-Mailgesendet':     '✉️ LinkedIn: Mail gesendet',
+        'LI-Mail gesendet':    '✉️ LinkedIn: Mail gesendet',
+        // VR-Pipeline
+        vrmail_gesendet: '🎥 VR: Mail gesendet',
+        vrfollowup1:     '🎥 VR: Followup 1',
+        vrfollowup2:     '🎥 VR: Followup 2',
+        vrfollowup3:     '🎥 VR: Followup 3',
+        vrtoday:         '🎥 VR: Heute',
+        // Abschluss
+        won:          '🏆 Gewonnen',
+        nointerest:   '🚫 Kein Interesse',
+        nokeinbedarf: '💤 Kein Bedarf aktuell'
       };
       return labels[status] || status;
     }
@@ -8217,6 +8224,9 @@ www.livetour.ch`;
           }
           if (btn.dataset.view === 'immoradar') {
             renderImmoRadar();
+          }
+          if (btn.dataset.view === 'hkm') {
+            window.initHkmOnView?.();
           }
         });
       });

@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin Setup</title>
+  <style>
+    body { font-family: sans-serif; max-width: 480px; margin: 60px auto; padding: 20px; }
+    input { display: block; width: 100%; padding: 10px; margin: 8px 0 16px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
+    button { background: #1a73e8; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-size: 15px; width: 100%; }
+    button:disabled { background: #aaa; }
+    #status { margin-top: 16px; padding: 12px; border-radius: 6px; display: none; }
+    .ok { background: #d4edda; color: #155724; }
+    .err { background: #f8d7da; color: #721c24; }
+    label { font-weight: bold; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <h2>🔧 Admin Setup</h2>
+  <p>Logge dich ein — danach wird dein Account automatisch als <strong>Admin</strong> konfiguriert.</p>
+
+  <label>E-Mail</label>
+  <input type="email" id="email" placeholder="admin@firma.ch">
+
+  <label>Passwort</label>
+  <input type="password" id="password">
+
+  <label>Org-ID (Standard: livetour)</label>
+  <input type="text" id="orgId" value="livetour">
+
+  <button id="btn" onclick="setup()">Admin-Rechte setzen</button>
+  <div id="status"></div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-auth.js";
+    import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBDFNel-aihRzmfOn_bEYuhbnp2euiXDF0",
+      authDomain: "powerhour-8890a.firebaseapp.com",
+      databaseURL: "https://powerhour-8890a-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "powerhour-8890a",
+      storageBucket: "powerhour-8890a.firebasestorage.app",
+      messagingSenderId: "533667633971",
+      appId: "1:533667633971:web:670bd8a42e9a3eb0d7bc46"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getDatabase(app);
+
+    window.setup = async () => {
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      const orgId = document.getElementById('orgId').value.trim() || 'livetour';
+      const btn = document.getElementById('btn');
+      const status = document.getElementById('status');
+
+      if (!email || !password) {
+        showStatus('Bitte E-Mail und Passwort eingeben.', false);
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = '⏳ Wird gesetzt...';
+      status.style.display = 'none';
+
+      try {
+        const cred = await signInWithEmailAndPassword(auth, email, password);
+        const uid = cred.user.uid;
+
+        await set(ref(db, `users/${uid}/role`), 'admin');
+        await set(ref(db, `users/${uid}/orgId`), orgId);
+
+        showStatus(`✅ Fertig! UID: ${uid}\nrolle: admin\norgId: ${orgId}\n\nDu kannst diese Seite jetzt schließen und die App öffnen.`, true);
+      } catch (e) {
+        showStatus('❌ Fehler: ' + (e.message || e.code), false);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Admin-Rechte setzen';
+      }
+    };
+
+    function showStatus(msg, ok) {
+      const el = document.getElementById('status');
+      el.textContent = msg;
+      el.className = ok ? 'ok' : 'err';
+      el.style.display = 'block';
+      el.style.whiteSpace = 'pre-line';
+    }
+  </script>
+</body>
+</html>

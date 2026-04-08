@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="de-CH">
+<head>
+  <meta charset="utf-8">
+  <title>HKM Admin Setup</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 480px; margin: 60px auto; padding: 20px; background: #111; color: #f5f5f5; }
+    h2 { color: #f59e0b; }
+    input { display: block; width: 100%; padding: 10px; margin: 8px 0 16px; background: #1a1a1a; border: 1px solid #333; color: #fff; border-radius: 6px; font-size: 14px; box-sizing: border-box; }
+    button { background: #f59e0b; color: #000; border: none; padding: 12px 24px; border-radius: 6px; font-size: 14px; font-weight: 700; cursor: pointer; width: 100%; }
+    button:hover { background: #d97706; }
+    .msg { margin-top: 16px; padding: 12px; border-radius: 6px; font-size: 13px; }
+    .ok  { background: rgba(16,185,129,.15); color: #10b981; border: 1px solid #10b981; }
+    .err { background: rgba(239,68,68,.15);  color: #ef4444; border: 1px solid #ef4444; }
+    .info { font-size: 12px; color: #9ca3af; margin-bottom: 20px; }
+  </style>
+</head>
+<body>
+  <h2>🐶 HKM Admin Setup</h2>
+  <p class="info">
+    Dieses Tool setzt dein HKM-Profil auf <strong>admin</strong> und erstellt es, falls es noch nicht existiert.
+    Danach kannst du im VisuMat Sales Modul die Admin-Funktionen nutzen.
+  </p>
+
+  <label>Email</label>
+  <input type="email" id="email" placeholder="deine@email.ch">
+  <label>Passwort</label>
+  <input type="password" id="password" placeholder="Dein Passwort">
+  <label>Dein Name (für HKM-Profil)</label>
+  <input type="text" id="name" placeholder="Vorname Nachname">
+
+  <button id="btn" onclick="doSetup()">🚀 HKM Admin Setup starten</button>
+  <div id="msg"></div>
+
+  <script type="module">
+    import { initializeApp }    from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-app.js';
+    import { getAuth, signInWithEmailAndPassword, signOut } from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-auth.js';
+    import { getDatabase, ref, set, get }    from 'https://www.gstatic.com/firebasejs/12.8.0/firebase-database.js';
+
+    const firebaseConfig = {
+      apiKey:            "AIzaSyBDFNel-aihRzmfOn_bEYuhbnp2euiXDF0",
+      authDomain:        "powerhour-8890a.firebaseapp.com",
+      databaseURL:       "https://powerhour-8890a-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId:         "powerhour-8890a",
+      storageBucket:     "powerhour-8890a.firebasestorage.app",
+      messagingSenderId: "533667633971",
+      appId:             "1:533667633971:web:670bd8a42e9a3eb0d7bc46"
+    };
+
+    const app  = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db   = getDatabase(app);
+
+    function showMsg(text, type) {
+      const el = document.getElementById('msg');
+      el.textContent = text;
+      el.className = 'msg ' + type;
+    }
+
+    window.doSetup = async function() {
+      const email    = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      const name     = document.getElementById('name').value.trim();
+      const btn      = document.getElementById('btn');
+
+      if (!email || !password) { showMsg('Email und Passwort erforderlich', 'err'); return; }
+
+      btn.disabled = true;
+      btn.textContent = '⏳ Lädt...';
+      showMsg('', '');
+
+      try {
+        const cred = await signInWithEmailAndPassword(auth, email, password);
+        const uid  = cred.user.uid;
+
+        // Check existing profile
+        const snap = await get(ref(db, `hkm/profiles/${uid}`));
+        const existing = snap.val() || {};
+
+        const profile = {
+          uid,
+          name:             name || existing.name || email.split('@')[0],
+          email,
+          role:             'admin',
+          rang:             existing.rang            || 'dackel',
+          knochen:          existing.knochen         ?? 0,
+          katzen_count:     existing.katzen_count    ?? 0,
+          provision_total:  existing.provision_total ?? 0,
+          streak_days:      existing.streak_days     ?? 0,
+          last_active_date: existing.last_active_date || '',
+          boni_ausgezahlt:  existing.boni_ausgezahlt  || [],
+          createdAt:        existing.createdAt        || new Date().toISOString()
+        };
+
+        await set(ref(db, `hkm/profiles/${uid}`), profile);
+
+        showMsg(`✅ Fertig! ${profile.name} ist jetzt HKM-Admin (${uid.slice(0,12)}...). Du kannst diese Seite schliessen.`, 'ok');
+        await signOut(auth);
+      } catch (e) {
+        const msgs = {
+          'auth/invalid-credential': 'Email oder Passwort falsch',
+          'auth/user-not-found':     'Email nicht gefunden',
+          'auth/wrong-password':     'Passwort falsch',
+          'auth/too-many-requests':  'Zu viele Versuche, bitte warte kurz'
+        };
+        showMsg('❌ ' + (msgs[e.code] || e.message), 'err');
+      } finally {
+        btn.disabled    = false;
+        btn.textContent = '🚀 HKM Admin Setup starten';
+      }
+    };
+  </script>
+</body>
+</html>
