@@ -1025,8 +1025,9 @@ function renderHkmAdminProfiles() {
             <td>CHF ${hkmFmt(p.provision_total||0)}</td>
             <td>${p.streak_days||0}</td>
             <td><span style="font-size:11px;padding:2px 8px;border-radius:999px;background:${p.role==='admin'?'rgba(245,158,11,.15)':'rgba(107,114,128,.1)'};color:${p.role==='admin'?'#f59e0b':'var(--muted)'};">${p.role||'user'}</span></td>
-            <td style="display:flex;gap:6px;">
-              <button class="btn" style="font-size:11px;padding:3px 8px;" onclick="openHkmAdjustKnochenModal('${p.uid}')">🦴 Anpassen</button>
+            <td style="display:flex;gap:6px;flex-wrap:wrap;">
+              <button class="btn" style="font-size:11px;padding:3px 8px;" onclick="openHkmAdjustKnochenModal('${p.uid}')">🦴</button>
+              <button class="btn" style="font-size:11px;padding:3px 8px;" onclick="hkmRenameProfile('${p.uid}','${(p.name||'').replace(/'/g,'')}')">✏️ Name</button>
               <button class="btn" style="font-size:11px;padding:3px 8px;" onclick="toggleHkmRole('${p.uid}','${p.role||'user'}')">${p.role==='admin'?'→ User':'→ Admin'}</button>
             </td>
           </tr>`;
@@ -1042,10 +1043,10 @@ function renderHkmAdminProfiles() {
         ${unregistered.map(u => `
           <div style="display:flex;align-items:center;gap:10px;padding:10px;border:1px dashed var(--line);border-radius:8px;background:var(--bg);">
             <div style="flex:1;">
-              <div style="font-weight:600;font-size:13px;">${u.name || u.email || u.uid}</div>
-              <div style="font-size:11px;color:var(--muted);">${u.email || ''}</div>
+              <input type="text" id="hkmNewName_${u.uid}" value="${(u.name||'').replace(/"/g,'&quot;')}" placeholder="Echter Name..." class="input-field" style="margin:0;font-weight:600;font-size:13px;max-width:220px;">
+              <div style="font-size:11px;color:var(--muted);margin-top:2px;">${u.email || u.uid}</div>
             </div>
-            <button class="btn good" style="font-size:11px;padding:4px 12px;" onclick="hkmAddUserToSystem('${u.uid}','${(u.name||'').replace(/'/g,'')}','${(u.email||'').replace(/'/g,'')}')">➕ Zu HKM hinzufügen</button>
+            <button class="btn good" style="font-size:11px;padding:4px 12px;white-space:nowrap;" onclick="hkmAddUserToSystem('${u.uid}','${(u.email||'').replace(/'/g,'')}')">➕ Zu HKM hinzufügen</button>
           </div>`).join('')}
       </div>
     </div>`;
@@ -1053,10 +1054,29 @@ function renderHkmAdminProfiles() {
   el.innerHTML = profilesHtml + unregisteredHtml;
 }
 
-window.hkmAddUserToSystem = async function(uid, name, email) {
+window.hkmAddUserToSystem = async function(uid, email) {
+  const nameInput = document.getElementById(`hkmNewName_${uid}`);
+  const name = nameInput?.value.trim() || email || uid;
+  if (!name || name === 'Dein Name') {
+    nameInput?.focus();
+    showToast('⚠️ Bitte zuerst den echten Namen eingeben');
+    return;
+  }
   try {
     await window.hkmCreateProfile(uid, name, email);
-    showToast(`✅ ${name || uid} zum HKM-System hinzugefügt`);
+    showToast(`✅ ${name} zum HKM-System hinzugefügt`);
+    renderHkmAdmin();
+  } catch(e) {
+    showToast('❌ Fehler: ' + e.message);
+  }
+};
+
+window.hkmRenameProfile = async function(uid, currentName) {
+  const newName = prompt('Neuer Name für dieses Profil:', currentName || '');
+  if (!newName || !newName.trim() || newName.trim() === currentName) return;
+  try {
+    await window.setHkmProfileName(uid, newName.trim());
+    showToast(`✅ Name auf "${newName.trim()}" geändert`);
     renderHkmAdmin();
   } catch(e) {
     showToast('❌ Fehler: ' + e.message);

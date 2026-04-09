@@ -285,6 +285,11 @@ window.setHkmRole = async (uid, role) => {
   await set(ref(db, `hkm/profiles/${uid}/role`), role);
 };
 
+window.setHkmProfileName = async (uid, name) => {
+  if (!currentUser) throw new Error('not-authenticated');
+  await set(ref(db, `hkm/profiles/${uid}/name`), name);
+};
+
 window.saveHkmActivity = async (activity) => {
   if (!currentUser) throw new Error('not-authenticated');
   const actRef = push(ref(db, 'hkm/activities'));
