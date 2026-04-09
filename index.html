@@ -35,16 +35,12 @@
     <aside class="sidebar" id="sidebar">
       <div class="sidebar-brand">⚡ liveTour CRM</div>
       <nav class="sidebar-nav">
-        <button data-view="kontakte" class="nav-item active"><span class="nav-icon">👤</span> Kontakte</button>
-        <button data-view="session" class="nav-item"><span class="nav-icon">📞</span> Session</button>
-        <button data-view="crm" class="nav-item"><span class="nav-icon">🏢</span> CRM</button>
-        <button data-view="immoradar" class="nav-item"><span class="nav-icon">📡</span> ImmoRadar</button>
-        <button data-view="analytics" class="nav-item"><span class="nav-icon">📊</span> Analytics</button>
+        <button data-view="analytics" class="nav-item active"><span class="nav-icon">📊</span> Dashboard</button>
+        <button data-view="kontakte" class="nav-item"><span class="nav-icon">👥</span> Kontakte & CRM</button>
+        <button data-view="session" class="nav-item"><span class="nav-icon">📞</span> Sessions</button>
+        <button data-view="hkm" class="nav-item" onclick="window.initHkmOnView?.()"><span class="nav-icon">🎯</span> VisuMat Sales</button>
         <button data-view="aufgaben" class="nav-item"><span class="nav-icon">📋</span> Aufgaben</button>
         <button data-view="settings" class="nav-item"><span class="nav-icon">⚙️</span> Einstellungen</button>
-        <button data-view="vrundgang" class="nav-item"><span class="nav-icon">🎥</span> Virt. Rundgang</button>
-        <button data-view="matkon" class="nav-item" style="display:none;"><span class="nav-icon">🐾</span> MatKon (alt)</button>
-        <button data-view="hkm" class="nav-item" onclick="window.initHkmOnView?.()"><span class="nav-icon">🐶</span> VisuMat Sales</button>
       </nav>
       <div id="memberSwitcher" style="padding: 10px 12px; border-top: 1px solid var(--line);">
         <div style="font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 8px;">Ansicht als:</div>
@@ -61,14 +57,23 @@
       <div id="kontakte" class="section active">
         <div class="main-header">
           <div>
-            <div class="header-title">Kontakte</div>
+            <div class="header-title">Kontakte &amp; CRM</div>
             <div class="header-sub" id="kontakteStats">0 Kontakte · 0 heute anrufen · 0 Followups</div>
           </div>
           <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-            <button class="btn" id="btnOpenTagManager">🏷️ Tags</button>
-            <button class="btn primary" id="btnAddContact">+ Neu</button>
+            <button class="btn" id="btnOpenTagManager" style="display:none;">🏷️ Tags</button>
+            <button class="btn primary" id="btnAddContact" style="display:none;">+ Neu</button>
           </div>
         </div>
+
+        <!-- Kontakte/CRM Tabs -->
+        <div class="analytics-tab-bar" id="kontakteCrmTabBar" style="margin-bottom:16px;">
+          <button class="analytics-tab active" data-kontakte-tab="liste" onclick="switchKontakteTab('liste')">👥 Kontakte-Liste</button>
+          <button class="analytics-tab" data-kontakte-tab="crm" onclick="switchKontakteTab('crm')">🏢 Firmen &amp; CRM</button>
+        </div>
+
+        <!-- Tab: Kontakte-Liste -->
+        <div id="kontakteTabListe">
 
         <div class="card">
           <div class="card-content">
@@ -230,121 +235,206 @@
           <button class="btn" id="btnBatchAssign">👤 Zuweisen</button>
           <button class="btn" id="btnBatchVrSession" style="border-color:#0ea5e9; color:#0ea5e9;">🎥 VR-Session</button>
         </div>
-      </div>
+        </div><!-- /kontakteTabListe -->
 
-      <div id="immoradar" class="section">
-        <div class="main-header">
-          <div>
-            <div class="header-title">ImmoRadar</div>
-            <div class="header-sub" id="irSubtitle">LinkedIn Outreach & Lead-Priorisierung auf Basis deiner bestehenden Kontakte</div>
+        <!-- Tab: Firmen & CRM -->
+        <div id="kontakteTabCrm" style="display:none;">
+          <div class="two-col">
+            <div class="card">
+              <div class="card-head">
+                <h3 class="card-title">Neue Firma + Ansprechpartner</h3>
+              </div>
+              <div class="card-content">
+                <label class="label">Firma</label>
+                <div class="suggestion-box">
+                  <input type="text" id="crmCompanyName" class="input-field" placeholder="Firma">
+                  <div id="crmCompanySuggestions" class="suggestion-list"></div>
+                </div>
+                <div id="crmCompanyHint" class="hint"></div>
+
+                <div class="two-col">
+                  <div>
+                    <label class="label">Branche</label>
+                    <input type="text" id="crmCompanyIndustry" class="input-field">
+                  </div>
+                  <div>
+                    <label class="label">Standort</label>
+                    <input type="text" id="crmCompanyLocation" class="input-field">
+                  </div>
+                </div>
+                <label class="label">Website</label>
+                <input type="url" id="crmCompanyWebsite" class="input-field" placeholder="https://...">
+
+                <div class="two-col">
+                  <div>
+                    <label class="label">Strasse</label>
+                    <input type="text" id="crmCompanyStreet" class="input-field">
+                  </div>
+                  <div>
+                    <label class="label">PLZ</label>
+                    <input type="text" id="crmCompanyPostal" class="input-field">
+                  </div>
+                </div>
+                <label class="label">Ort</label>
+                <input type="text" id="crmCompanyCity" class="input-field">
+
+                <div class="divider"></div>
+
+                <div class="label">Ansprechpartner</div>
+                <div class="two-col">
+                  <div>
+                    <label class="label">Vorname</label>
+                    <input type="text" id="crmContactFirst" class="input-field">
+                  </div>
+                  <div>
+                    <label class="label">Nachname</label>
+                    <input type="text" id="crmContactLast" class="input-field">
+                  </div>
+                </div>
+                <div class="two-col">
+                  <div>
+                    <label class="label">Telefon</label>
+                    <input type="tel" id="crmContactPhone" class="input-field" placeholder="+41 ...">
+                  </div>
+                  <div>
+                    <label class="label">Email</label>
+                    <input type="email" id="crmContactEmail" class="input-field" placeholder="mail@firma.ch">
+                  </div>
+                </div>
+                <label class="label">LinkedIn</label>
+                <input type="url" id="crmContactLinkedIn" class="input-field" placeholder="https://linkedin.com/in/...">
+                <label class="label">Rolle</label>
+                <input type="text" id="crmContactRole" class="input-field" placeholder="z.B. Geschäftsführer">
+
+                <button class="btn good" id="btnCrmSaveAddress" style="width: 100%; margin-top: 8px;">➕ Firma &amp; Kontakt speichern</button>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-head" style="justify-content: space-between;">
+                <div>
+                  <h3 class="card-title">Firmen</h3>
+                  <div class="card-sub" id="crmCompanyCount">0 Firmen</div>
+                </div>
+                <input type="text" id="crmSearch" class="input-field" placeholder="Firma suchen..." style="max-width: 220px; margin: 0;">
+              </div>
+              <div class="card-content" style="overflow-x: auto;">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Firma</th>
+                      <th>Branche</th>
+                      <th>Standort</th>
+                      <th>Kontakte</th>
+                    </tr>
+                  </thead>
+                  <tbody id="crmCompaniesBody"></tbody>
+                </table>
+              </div>
+            </div>
           </div>
-          <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
-            <div class="ir-api-pill" id="irApiStatus">
-              <span class="ir-api-dot" id="irApiDot"></span>
-              <span id="irApiText">API nicht konfiguriert</span>
-            </div>
-            <button class="btn" id="btnIrApiKey">🔐 API Key</button>
-            <button class="btn" id="btnIrRefresh">🔄 Aktualisieren</button>
-          </div>
-        </div>
 
-        <div class="card">
-          <div class="card-content">
-            <div class="ir-kpi-grid">
-              <div class="ir-kpi"><div class="ir-kpi-value" id="irKpiTotal">0</div><div class="ir-kpi-label">Gesamt</div></div>
-              <div class="ir-kpi"><div class="ir-kpi-value" id="irKpiHot">0</div><div class="ir-kpi-label">Hot</div></div>
-              <div class="ir-kpi"><div class="ir-kpi-value" id="irKpiWarm">0</div><div class="ir-kpi-label">Warm</div></div>
-              <div class="ir-kpi"><div class="ir-kpi-value" id="irKpiCool">0</div><div class="ir-kpi-label">Cool</div></div>
-              <div class="ir-kpi"><div class="ir-kpi-value" id="irKpiLinkedin">0</div><div class="ir-kpi-label">LinkedIn</div></div>
-              <div class="ir-kpi"><div class="ir-kpi-value" id="irKpiWon">0</div><div class="ir-kpi-label">Won</div></div>
+          <div class="card">
+            <div class="card-head">
+              <div>
+                <h3 class="card-title" id="crmDetailTitle">Firma auswaehlen</h3>
+                <div class="card-sub" id="crmDetailSub">Waehl eine Firma, um Kontakte zu sehen</div>
+              </div>
             </div>
-
-            <div class="ir-segments" id="irSegments">
-              <button class="ir-segment-btn active" data-ir-segment="all">Alle</button>
-              <button class="ir-segment-btn" data-ir-segment="hot">🔥 Hot</button>
-              <button class="ir-segment-btn" data-ir-segment="warm">🟠 Warm</button>
-              <button class="ir-segment-btn" data-ir-segment="cool">🔵 Cool</button>
-            </div>
-
-            <div style="display:flex; justify-content:flex-end; margin-bottom:8px;">
-              <button class="btn" id="btnIrBulkLio" style="border-color:#3b82f6; color:#3b82f6;">🔗 Alle gefilterten als LIO Today</button>
-            </div>
-
-            <div style="display:grid; grid-template-columns:1.2fr 1fr 1fr 1fr 1fr; gap:10px;">
-              <input id="irSearch" type="text" class="input-field" placeholder="Suche: Name, Firma, Ort..." style="margin:0;">
-              <select id="irStatus" class="input-field" style="margin:0;">
-                <option value="all">Alle Status</option>
-                <option value="new">Neu</option>
-                <option value="lioutboundtoday">LIO Today</option>
-                <option value="lioutboundfollowup">LIO Followup</option>
-                <option value="response">Antwort</option>
-                <option value="followup">Followup</option>
-                <option value="won">Gewonnen</option>
-              </select>
-              <select id="irSortBy" class="input-field" style="margin:0;">
-                <option value="score">Score</option>
-                <option value="name">Name</option>
-                <option value="company">Firma</option>
-                <option value="lastTouch">Last Touch</option>
-              </select>
-              <select id="irPageSize" class="input-field" style="margin:0;">
-                <option value="12">12 / Seite</option>
-                <option value="25">25 / Seite</option>
-                <option value="50">50 / Seite</option>
-              </select>
-              <button class="btn" id="irSortDir">↓ Absteigend</button>
-            </div>
-
-            <div class="ir-table-wrap">
+            <div class="card-content">
               <table>
                 <thead>
                   <tr>
-                    <th>Kontakt</th>
-                    <th>Score</th>
-                    <th>Segment</th>
-                    <th>Strength</th>
-                    <th>Status</th>
-                    <th>Pipeline</th>
-                    <th>Last Touch</th>
+                    <th>Typ</th>
+                    <th>Name / Adresse</th>
+                    <th>Rolle</th>
+                    <th>Telefon</th>
+                    <th>Email</th>
+                    <th>Markierung</th>
                     <th>Aktion</th>
                   </tr>
                 </thead>
-                <tbody id="irTableBody">
-                  <tr><td colspan="8" style="text-align:center; color:var(--muted); padding:16px;">Keine Daten</td></tr>
-                </tbody>
+                <tbody id="crmContactsBody"></tbody>
               </table>
-            </div>
 
-            <div id="irPagination" style="display:flex; justify-content:center; align-items:center; gap:6px; margin-top:10px;"></div>
-
-            <div class="ir-pipeline" id="irPipeline"></div>
-
-            <div class="ir-charts-grid">
-              <div class="ir-chart-card">
-                <div class="ir-chart-title">Segment-Verteilung</div>
-                <div id="irChartSegments" class="ir-bars"></div>
+              <div style="margin-top: 14px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg);">
+                <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;">
+                  <div class="label" style="margin: 0;">Firmen-Notizen (Session)</div>
+                  <select id="crmCompanyNotesFilter" class="input-field" style="max-width: 280px; margin: 0;"></select>
+                </div>
+                <div id="crmCompanyNotesHistory" style="max-height: 220px; overflow-y: auto;"></div>
               </div>
-              <div class="ir-chart-card">
-                <div class="ir-chart-title">Pipeline-Verteilung</div>
-                <div id="irChartPipeline" class="ir-bars"></div>
+
+              <div class="divider"></div>
+
+              <div class="label">Neue Kontaktperson fuer diese Firma</div>
+              <div class="two-col">
+                <div>
+                  <label class="label">Vorname</label>
+                  <input type="text" id="crmNewContactFirst" class="input-field">
+                </div>
+                <div>
+                  <label class="label">Nachname</label>
+                  <input type="text" id="crmNewContactLast" class="input-field">
+                </div>
               </div>
+              <div class="two-col">
+                <div>
+                  <label class="label">Telefon</label>
+                  <input type="tel" id="crmNewContactPhone" class="input-field" placeholder="+41 ...">
+                </div>
+                <div>
+                  <label class="label">Email</label>
+                  <input type="email" id="crmNewContactEmail" class="input-field" placeholder="mail@firma.ch">
+                </div>
+              </div>
+              <label class="label">LinkedIn</label>
+              <input type="url" id="crmNewContactLinkedIn" class="input-field" placeholder="https://linkedin.com/in/...">
+              <label class="label">Rolle</label>
+              <input type="text" id="crmNewContactRole" class="input-field" placeholder="z.B. Vertrieb">
+              <label class="label">Adresse / Zweigniederlassung</label>
+              <select id="crmNewContactBranch" class="input-field"></select>
+              <label class="label" style="display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" id="crmNewContactPrimary">
+                Hauptansprechperson
+              </label>
+              <button class="btn good" id="btnCrmAddContact" style="width: 100%; margin-top: 8px;">➕ Kontaktperson speichern</button>
             </div>
           </div>
-        </div>
-      </div>
+
+          <div class="card">
+            <div class="card-head">
+              <div>
+                <h3 class="card-title">Doublett-Check</h3>
+                <div class="card-sub">Token eingeben und doppelte Firmen zusammenfuehren</div>
+              </div>
+            </div>
+            <div class="card-content">
+              <div>
+                <label class="label">Token (z.B. "Remax", "Engel")</label>
+                <input type="text" id="crmDuplicateToken" class="input-field" placeholder="Token eingeben...">
+              </div>
+              <div id="crmDuplicateResults" style="margin-top: 12px;"></div>
+              <button class="btn primary" id="btnCrmMergeDuplicates" style="margin-top: 12px;">🔗 Ausgewählte zusammenführen</button>
+            </div>
+          </div>
+        </div><!-- /kontakteTabCrm -->
+
+      </div><!-- /#kontakte -->
 
       <div id="session" class="section">
         <div class="card">
           <div class="card-head">
             <div>
-              <h3 class="card-title">Session</h3>
-              <p class="card-sub">Ein Modus für Calls, Mails und LinkedIn</p>
+              <h3 class="card-title">Sessions</h3>
+              <p class="card-sub">Calls, Mails, LinkedIn und VR Rundgang</p>
             </div>
             <div style="display: flex; gap: 8px; flex-wrap: wrap;">
               <button class="btn" data-session-mode="call">📞 Anruf</button>
               <button class="btn" data-session-mode="mail">✉️ Mail</button>
               <button class="btn" data-session-mode="outreach">💬 LinkedIn</button>
               <button class="btn" data-session-mode="followup" style="border-color: #ea580c; color: #ea580c;">🔄 Followup</button>
+              <button class="btn" data-session-mode="vr" style="border-color: #0ea5e9; color: #0ea5e9;">🎥 VR Rundgang</button>
             </div>
           </div>
           <div class="card-content">
@@ -461,6 +551,104 @@
           </div>
         </div>
 
+        <!-- VR RUNDGANG SESSION PANEL (mode = vr) -->
+        <div id="vrSessionPanel" style="display:none;">
+          <div class="card">
+            <div class="card-head">
+              <div>
+                <h3 class="card-title">VR Session</h3>
+                <div class="card-sub">Kontakte nacheinander abarbeiten, Projektdaten ergänzen und Mails generieren</div>
+              </div>
+              <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <button class="btn" id="btnVrLoadAll">🔄 Alle VR-Kontakte laden</button>
+                <button class="btn primary" id="btnVrStartSession">▶ Session starten</button>
+                <button class="btn" onclick="setView('vrundgang')" style="border-color:var(--muted); color:var(--muted);">📋 VR Übersicht</button>
+              </div>
+            </div>
+            <div class="card-content">
+              <div id="vrSessionInfo" style="padding:10px; background:var(--accent-soft); border-radius:10px; font-size:12px; color:var(--muted); margin-bottom:12px;">
+                Keine Kontakte in der Queue. Kontakte per Batch-Auswahl hinzufügen oder alle VR-Kontakte laden.
+              </div>
+
+              <div id="vrActiveSession" style="display:none;">
+                <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:8px;">
+                  <input type="text" id="vrContactSearch" class="input-field" placeholder="🔍 Kontakt suchen (Name, Firma, E-Mail)…" style="flex:1; min-width:160px; margin:0;" oninput="vrSearchContacts(this.value)">
+                  <button class="btn" type="button" onclick="vrClearContact()">✕ Leeren</button>
+                </div>
+                <div id="vrContactSearchResults" style="display:none; border:1px solid var(--line); border-radius:8px; background:var(--card); max-height:180px; overflow-y:auto; margin-bottom:8px; font-size:12px;"></div>
+
+                <div id="vrLinkedContactBadge" style="display:none; background:var(--accent-soft); border-radius:8px; padding:7px 12px; margin-bottom:10px;">
+                  <div class="contact-name" id="vrSessionContactName" style="font-size:13px;">–</div>
+                  <div id="vrSessionContactCompany" style="color:var(--muted); font-size:11px;">–</div>
+                  <div id="vrSessionContactMeta" style="color:var(--muted); font-size:11px; margin-top:2px;">–</div>
+                  <span class="status-badge" id="vrSessionContactStatus" style="margin-top:4px; display:inline-block;">–</span>
+                </div>
+
+                <div class="card" style="margin-bottom:12px;">
+                  <div class="card-content">
+                    <div class="label" style="font-weight:700; margin-bottom:8px;">Kontakt- &amp; Projektdaten</div>
+                    <div style="display:flex; gap:6px; margin-bottom:8px;">
+                      <button class="btn active" id="vrSAnredeHerr" onclick="vrSSetAnrede('Herr')">Herr</button>
+                      <button class="btn" id="vrSAnredeFrau" onclick="vrSSetAnrede('Frau')">Frau</button>
+                    </div>
+                    <div class="two-col">
+                      <div><label class="label">Vorname</label><input type="text" id="vrSVorname" class="input-field" placeholder="Vorname" oninput="renderVrSessionPreview()"></div>
+                      <div><label class="label">Nachname</label><input type="text" id="vrSNachname" class="input-field" placeholder="Nachname" oninput="renderVrSessionPreview()"></div>
+                    </div>
+                    <label class="label">Firma</label>
+                    <input type="text" id="vrSFirma" class="input-field" placeholder="Firma">
+                    <div class="two-col">
+                      <div><label class="label">E-Mail</label><input type="email" id="vrSEmail" class="input-field" placeholder="mail@firma.ch"></div>
+                      <div><label class="label">Telefon</label><input type="tel" id="vrSTelefon" class="input-field" placeholder="+41 …"></div>
+                    </div>
+                    <div class="two-col">
+                      <div><label class="label">Projektname</label><input type="text" id="vrSProjekt" class="input-field" placeholder="z.B. Residenz am Park" oninput="renderVrSessionPreview()"></div>
+                      <div><label class="label">Wohnungsname</label><input type="text" id="vrSWohnung" class="input-field" placeholder="z.B. Wohnung A1.02" oninput="renderVrSessionPreview()"></div>
+                    </div>
+                    <div class="two-col">
+                      <div><label class="label">Punkte (360°-Bilder)</label><input type="number" id="vrSPunkte" class="input-field" min="1" value="1" oninput="renderVrSessionPreview()"></div>
+                      <div><label class="label">Variante</label>
+                        <select id="vrSVariante" class="input-field" onchange="renderVrSessionPreview()">
+                          <option value="web">Projektwebseite</option>
+                          <option value="web_grundriss">Projektwebseite + Grundriss</option>
+                          <option value="portal">Portal</option>
+                          <option value="portal_grundriss">Portal + Grundriss</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="card" style="margin-bottom:12px;">
+                  <div class="card-content">
+                    <div class="label" style="font-weight:700; margin-bottom:8px;">Mail-Vorschau</div>
+                    <div id="vrSPreviewSubject" style="font-size:12px; font-weight:700; color:var(--accent); margin-bottom:6px;"></div>
+                    <div id="vrSPreviewBody" style="font-size:11px; white-space:pre-wrap; background:rgba(0,0,0,.03); border:1px solid var(--line); border-radius:8px; padding:10px; max-height:220px; overflow-y:auto; font-family:monospace; line-height:1.6;"></div>
+                    <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;">
+                      <button class="btn primary" onclick="sendVrSessionMail()" style="flex:1;">📤 Mail senden (Outlook)</button>
+                      <button class="btn" onclick="copyVrSessionMail()">📋 Kopieren</button>
+                    </div>
+                    <label class="label" style="margin-top:10px;">Notiz (optional)</label>
+                    <textarea id="vrSNotes" class="input-field" placeholder="z.B. Mail gesendet, Follow-up geplant…" style="min-height:50px;"></textarea>
+                  </div>
+                </div>
+
+                <div style="display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap;">
+                  <button class="btn good" id="btnVrSaveAndNext" style="flex:1;">✅ Gesendet &amp; Nächster</button>
+                  <button class="btn" id="btnVrSkip">⏭ Überspringen</button>
+                </div>
+
+                <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--muted);">
+                  <button class="btn" id="btnVrSessionPrev">← Zurück</button>
+                  <span id="vrSessionProgress">1 / 1</span>
+                  <button class="btn" id="btnVrSessionNext">Weiter →</button>
+                  <button class="btn" id="btnVrEndSession">🏁 Beenden</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div class="card">
           <div class="card-head">
             <div>
@@ -494,194 +682,7 @@
         </div>
       </div>
 
-      <div id="crm" class="section">
-        <div class="main-header">
-          <div>
-            <div class="header-title">CRM</div>
-            <div class="header-sub">Firmen und Ansprechpartner sauber verwalten</div>
-          </div>
-        </div>
-
-        <div class="two-col">
-          <div class="card">
-            <div class="card-head">
-              <h3 class="card-title">Neue Firma + Ansprechpartner</h3>
-            </div>
-            <div class="card-content">
-              <label class="label">Firma</label>
-              <div class="suggestion-box">
-                <input type="text" id="crmCompanyName" class="input-field" placeholder="Firma">
-                <div id="crmCompanySuggestions" class="suggestion-list"></div>
-              </div>
-              <div id="crmCompanyHint" class="hint"></div>
-
-              <div class="two-col">
-                <div>
-                  <label class="label">Branche</label>
-                  <input type="text" id="crmCompanyIndustry" class="input-field">
-                </div>
-                <div>
-                  <label class="label">Standort</label>
-                  <input type="text" id="crmCompanyLocation" class="input-field">
-                </div>
-              </div>
-              <label class="label">Website</label>
-              <input type="url" id="crmCompanyWebsite" class="input-field" placeholder="https://...">
-
-              <div class="two-col">
-                <div>
-                  <label class="label">Strasse</label>
-                  <input type="text" id="crmCompanyStreet" class="input-field">
-                </div>
-                <div>
-                  <label class="label">PLZ</label>
-                  <input type="text" id="crmCompanyPostal" class="input-field">
-                </div>
-              </div>
-              <label class="label">Ort</label>
-              <input type="text" id="crmCompanyCity" class="input-field">
-
-              <div class="divider"></div>
-
-              <div class="label">Ansprechpartner</div>
-              <div class="two-col">
-                <div>
-                  <label class="label">Vorname</label>
-                  <input type="text" id="crmContactFirst" class="input-field">
-                </div>
-                <div>
-                  <label class="label">Nachname</label>
-                  <input type="text" id="crmContactLast" class="input-field">
-                </div>
-              </div>
-              <div class="two-col">
-                <div>
-                  <label class="label">Telefon</label>
-                  <input type="tel" id="crmContactPhone" class="input-field" placeholder="+41 ...">
-                </div>
-                <div>
-                  <label class="label">Email</label>
-                  <input type="email" id="crmContactEmail" class="input-field" placeholder="mail@firma.ch">
-                </div>
-              </div>
-              <label class="label">LinkedIn</label>
-              <input type="url" id="crmContactLinkedIn" class="input-field" placeholder="https://linkedin.com/in/...">
-              <label class="label">Rolle</label>
-              <input type="text" id="crmContactRole" class="input-field" placeholder="z.B. Geschäftsführer">
-
-              <button class="btn good" id="btnCrmSaveAddress" style="width: 100%; margin-top: 8px;">➕ Firma & Kontakt speichern</button>
-            </div>
-          </div>
-
-          <div class="card">
-            <div class="card-head" style="justify-content: space-between;">
-              <div>
-                <h3 class="card-title">Firmen</h3>
-                <div class="card-sub" id="crmCompanyCount">0 Firmen</div>
-              </div>
-              <input type="text" id="crmSearch" class="input-field" placeholder="Firma suchen..." style="max-width: 220px; margin: 0;">
-            </div>
-            <div class="card-content" style="overflow-x: auto;">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Firma</th>
-                    <th>Branche</th>
-                    <th>Standort</th>
-                    <th>Kontakte</th>
-                  </tr>
-                </thead>
-                <tbody id="crmCompaniesBody"></tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="card-head">
-            <div>
-              <h3 class="card-title" id="crmDetailTitle">Firma auswaehlen</h3>
-              <div class="card-sub" id="crmDetailSub">Waehl eine Firma, um Kontakte zu sehen</div>
-            </div>
-          </div>
-          <div class="card-content">
-            <table>
-              <thead>
-                <tr>
-                  <th>Typ</th>
-                  <th>Name / Adresse</th>
-                  <th>Rolle</th>
-                  <th>Telefon</th>
-                  <th>Email</th>
-                  <th>Markierung</th>
-                  <th>Aktion</th>
-                </tr>
-              </thead>
-              <tbody id="crmContactsBody"></tbody>
-            </table>
-
-            <div style="margin-top: 14px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg);">
-              <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;">
-                <div class="label" style="margin: 0;">Firmen-Notizen (Session)</div>
-                <select id="crmCompanyNotesFilter" class="input-field" style="max-width: 280px; margin: 0;"></select>
-              </div>
-              <div id="crmCompanyNotesHistory" style="max-height: 220px; overflow-y: auto;"></div>
-            </div>
-
-            <div class="divider"></div>
-
-            <div class="label">Neue Kontaktperson fuer diese Firma</div>
-            <div class="two-col">
-              <div>
-                <label class="label">Vorname</label>
-                <input type="text" id="crmNewContactFirst" class="input-field">
-              </div>
-              <div>
-                <label class="label">Nachname</label>
-                <input type="text" id="crmNewContactLast" class="input-field">
-              </div>
-            </div>
-            <div class="two-col">
-              <div>
-                <label class="label">Telefon</label>
-                <input type="tel" id="crmNewContactPhone" class="input-field" placeholder="+41 ...">
-              </div>
-              <div>
-                <label class="label">Email</label>
-                <input type="email" id="crmNewContactEmail" class="input-field" placeholder="mail@firma.ch">
-              </div>
-            </div>
-            <label class="label">LinkedIn</label>
-            <input type="url" id="crmNewContactLinkedIn" class="input-field" placeholder="https://linkedin.com/in/...">
-            <label class="label">Rolle</label>
-            <input type="text" id="crmNewContactRole" class="input-field" placeholder="z.B. Vertrieb">
-            <label class="label">Adresse / Zweigniederlassung</label>
-            <select id="crmNewContactBranch" class="input-field"></select>
-            <label class="label" style="display: flex; align-items: center; gap: 8px;">
-              <input type="checkbox" id="crmNewContactPrimary">
-              Hauptansprechperson
-            </label>
-            <button class="btn good" id="btnCrmAddContact" style="width: 100%; margin-top: 8px;">➕ Kontaktperson speichern</button>
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="card-head">
-            <div>
-              <h3 class="card-title">Doublett-Check</h3>
-              <div class="card-sub">Token eingeben und doppelte Firmen zusammenfuehren</div>
-            </div>
-          </div>
-          <div class="card-content">
-            <div>
-              <label class="label">Token (z.B. "Remax", "Engel")</label>
-              <input type="text" id="crmDuplicateToken" class="input-field" placeholder="Token eingeben...">
-            </div>
-            <div id="crmDuplicateResults" style="margin-top: 12px;"></div>
-            <button class="btn primary" id="btnCrmMergeDuplicates" style="margin-top: 12px;">🔗 Ausgewählte zusammenführen</button>
-          </div>
-        </div>
-      </div>
+      <!-- #crm section removed — content merged into #kontakte > #kontakteTabCrm -->
 
       <div id="settings" class="section">
         <div class="main-header">
@@ -913,11 +914,14 @@
       <div id="analytics" class="section">
         <div class="main-header">
           <div>
-            <div class="header-title">📊 Analytics Dashboard</div>
-            <div class="header-sub">Korrekte Auswertung nach Modul, Zeitraum und Mitarbeiter</div>
+            <div class="header-title">📊 Dashboard</div>
+            <div class="header-sub">Tagesübersicht & Auswertungen</div>
           </div>
           <button class="btn primary" id="btnDashAnalyticsApply">🔍 Anwenden</button>
         </div>
+
+        <!-- My Day Bar -->
+        <div id="dashboardMyDayBar"></div>
 
         <!-- Filter Card -->
         <div class="card" style="margin-bottom:16px;">
@@ -1213,138 +1217,19 @@
         </div>
       </div>
 
-      <!-- VIRTUELLER RUNDGANG SEKTION -->
-      <div id="vrundgang" class="section">
+      <!-- VR TRACKING ÜBERSICHT (hidden section, accessible via link in VR session panel) -->
+      <div id="vrundgang" class="section" style="display:none !important;">
         <div class="main-header">
           <div>
-            <div class="header-title">🎥 Virtueller Rundgang</div>
-            <div class="header-sub">Mail-Generator und Kontakt-Tracking fuer VR-Akquise</div>
+            <div class="header-title">🎥 VR Übersicht</div>
+            <div class="header-sub">Tracking-Tabelle für VR-Akquise</div>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn" onclick="setView('session'); setSessionMode('vr');">← Zurück zur Session</button>
           </div>
         </div>
 
-        <!-- VR SESSION CARD -->
-        <div class="card">
-          <div class="card-head">
-            <div>
-              <h3 class="card-title">VR Session</h3>
-              <div class="card-sub">Kontakte nacheinander abarbeiten, Projektdaten ergaenzen und Mails generieren</div>
-            </div>
-            <div style="display:flex; gap:8px; flex-wrap:wrap;">
-              <button class="btn" id="btnVrLoadAll">🔄 Alle VR-Kontakte laden</button>
-              <button class="btn primary" id="btnVrStartSession">▶ Session starten</button>
-            </div>
-          </div>
-          <div class="card-content">
-            <div id="vrSessionInfo" style="padding:10px; background:var(--accent-soft); border-radius:10px; font-size:12px; color:var(--muted); margin-bottom:12px;">
-              Keine Kontakte in der Queue. Kontakte per Batch-Auswahl hinzufuegen oder alle VR-Kontakte laden.
-            </div>
-
-            <div id="vrActiveSession" style="display:none;">
-
-              <!-- Kontakt suchen / verlinken -->
-              <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:8px;">
-                <input type="text" id="vrContactSearch" class="input-field" placeholder="🔍 Kontakt suchen (Name, Firma, E-Mail)…" style="flex:1; min-width:160px; margin:0;" oninput="vrSearchContacts(this.value)">
-                <button class="btn" type="button" onclick="vrClearContact()">✕ Leeren</button>
-              </div>
-              <div id="vrContactSearchResults" style="display:none; border:1px solid var(--line); border-radius:8px; background:var(--card); max-height:180px; overflow-y:auto; margin-bottom:8px; font-size:12px;"></div>
-
-              <!-- Verlinkter Kontakt Badge -->
-              <div id="vrLinkedContactBadge" style="display:none; background:var(--accent-soft); border-radius:8px; padding:7px 12px; margin-bottom:10px;">
-                <div class="contact-name" id="vrSessionContactName" style="font-size:13px;">–</div>
-                <div id="vrSessionContactCompany" style="color:var(--muted); font-size:11px;">–</div>
-                <div id="vrSessionContactMeta" style="color:var(--muted); font-size:11px; margin-top:2px;">–</div>
-                <span class="status-badge" id="vrSessionContactStatus" style="margin-top:4px; display:inline-block;">–</span>
-              </div>
-
-              <!-- Formular: Kontakt- & Projektdaten -->
-              <div class="card" style="margin-bottom:12px;">
-                <div class="card-content">
-                  <div class="label" style="font-weight:700; margin-bottom:8px;">Kontakt- &amp; Projektdaten</div>
-                  <div style="display:flex; gap:6px; margin-bottom:8px;">
-                    <button class="btn active" id="vrSAnredeHerr" onclick="vrSSetAnrede('Herr')">Herr</button>
-                    <button class="btn" id="vrSAnredeFrau" onclick="vrSSetAnrede('Frau')">Frau</button>
-                  </div>
-                  <div class="two-col">
-                    <div>
-                      <label class="label">Vorname</label>
-                      <input type="text" id="vrSVorname" class="input-field" placeholder="Vorname" oninput="renderVrSessionPreview()">
-                    </div>
-                    <div>
-                      <label class="label">Nachname</label>
-                      <input type="text" id="vrSNachname" class="input-field" placeholder="Nachname" oninput="renderVrSessionPreview()">
-                    </div>
-                  </div>
-                  <label class="label">Firma</label>
-                  <input type="text" id="vrSFirma" class="input-field" placeholder="Firma">
-                  <div class="two-col">
-                    <div>
-                      <label class="label">E-Mail</label>
-                      <input type="email" id="vrSEmail" class="input-field" placeholder="mail@firma.ch">
-                    </div>
-                    <div>
-                      <label class="label">Telefon</label>
-                      <input type="tel" id="vrSTelefon" class="input-field" placeholder="+41 …">
-                    </div>
-                  </div>
-                  <div class="two-col">
-                    <div>
-                      <label class="label">Projektname</label>
-                      <input type="text" id="vrSProjekt" class="input-field" placeholder="z.B. Residenz am Park" oninput="renderVrSessionPreview()">
-                    </div>
-                    <div>
-                      <label class="label">Wohnungsname</label>
-                      <input type="text" id="vrSWohnung" class="input-field" placeholder="z.B. Wohnung A1.02" oninput="renderVrSessionPreview()">
-                    </div>
-                  </div>
-                  <div class="two-col">
-                    <div>
-                      <label class="label">Punkte (360°-Bilder)</label>
-                      <input type="number" id="vrSPunkte" class="input-field" min="1" value="1" oninput="renderVrSessionPreview()">
-                    </div>
-                    <div>
-                      <label class="label">Variante</label>
-                      <select id="vrSVariante" class="input-field" onchange="renderVrSessionPreview()">
-                        <option value="web">Projektwebseite</option>
-                        <option value="web_grundriss">Projektwebseite + Grundriss</option>
-                        <option value="portal">Portal</option>
-                        <option value="portal_grundriss">Portal + Grundriss</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Mail-Vorschau -->
-              <div class="card" style="margin-bottom:12px;">
-                <div class="card-content">
-                  <div class="label" style="font-weight:700; margin-bottom:8px;">Mail-Vorschau</div>
-                  <div id="vrSPreviewSubject" style="font-size:12px; font-weight:700; color:var(--accent); margin-bottom:6px;"></div>
-                  <div id="vrSPreviewBody" style="font-size:11px; white-space:pre-wrap; background:rgba(0,0,0,.03); border:1px solid var(--line); border-radius:8px; padding:10px; max-height:220px; overflow-y:auto; font-family:monospace; line-height:1.6;"></div>
-                  <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;">
-                    <button class="btn primary" onclick="sendVrSessionMail()" style="flex:1;">📤 Mail senden (Outlook)</button>
-                    <button class="btn" onclick="copyVrSessionMail()">📋 Kopieren</button>
-                  </div>
-                  <label class="label" style="margin-top:10px;">Notiz (optional)</label>
-                  <textarea id="vrSNotes" class="input-field" placeholder="z.B. Mail gesendet, Follow-up geplant…" style="min-height:50px;"></textarea>
-                </div>
-              </div>
-
-              <div style="display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap;">
-                <button class="btn good" id="btnVrSaveAndNext" style="flex:1;">✅ Gesendet &amp; Nächster</button>
-                <button class="btn" id="btnVrSkip">⏭ Überspringen</button>
-              </div>
-
-              <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--muted);">
-                <button class="btn" id="btnVrSessionPrev">← Zurück</button>
-                <span id="vrSessionProgress">1 / 1</span>
-                <button class="btn" id="btnVrSessionNext">Weiter →</button>
-                <button class="btn" id="btnVrEndSession">🏁 Beenden</button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- BEREICH B: TRACKING-TABELLE -->
+        <!-- TRACKING-TABELLE -->
         <div class="card">
           <div class="card-head">
             <div>
@@ -1409,127 +1294,7 @@
         </div>
       </div><!-- end #vrundgang -->
 
-      <div id="matkon" class="section">
-        <div class="main-header">
-          <div>
-            <div class="header-title">🐾 MatKon – Hund-Katze-Maus</div>
-            <div class="header-sub" id="matkonSubtitle">Sales Tracking für die MatKon-Vermarktung · Wir sind die Hunde, die Kunden sind die Katzen</div>
-          </div>
-          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-            <button class="btn" id="btnMatkonAnalytics" onclick="setMatkonTab('analytics')">📊 Analytics</button>
-            <button class="btn primary" id="btnAddMatkonProject" onclick="openAddMatkonProjectModal()">+ Neues Projekt</button>
-          </div>
-        </div>
-
-        <!-- Tab Navigation -->
-        <div class="filter-tabs" style="margin-bottom: 16px;">
-          <button class="filter-tab active" data-matkon-tab="projects" onclick="setMatkonTab('projects')">📋 Projektliste</button>
-          <button class="filter-tab" data-matkon-tab="analytics" onclick="setMatkonTab('analytics')">📊 Analytics</button>
-        </div>
-
-        <!-- PROJEKTLISTE VIEW -->
-        <div id="matkonProjectsView">
-          <div class="card">
-            <div class="card-content">
-              <div style="display: grid; grid-template-columns: 1.5fr 1fr 1fr 1fr; gap: 12px; margin-bottom: 12px;">
-                <div>
-                  <label class="label">Suche</label>
-                  <input type="text" id="matkonSearch" class="input-field" placeholder="Projektname, Firma..." style="margin:0;" oninput="renderMatkonProjects()">
-                </div>
-                <div>
-                  <label class="label">Region / Revier</label>
-                  <select id="matkonFilterTerritory" class="input-field" style="margin:0;" onchange="renderMatkonProjects()">
-                    <option value="">Alle Regionen</option>
-                  </select>
-                </div>
-                <div>
-                  <label class="label">Zugewiesen an</label>
-                  <select id="matkonFilterMember" class="input-field" style="margin:0;" onchange="renderMatkonProjects()">
-                    <option value="">Alle Mitarbeiter</option>
-                  </select>
-                </div>
-                <div>
-                  <label class="label">Status</label>
-                  <select id="matkonFilterStatus" class="input-field" style="margin:0;" onchange="renderMatkonProjects()">
-                    <option value="">Alle Status</option>
-                    <option value="new">🆕 Neu</option>
-                    <option value="in_progress">⏳ In Bearbeitung</option>
-                    <option value="closed_won">✅ Abgeschlossen (Gewonnen)</option>
-                    <option value="closed_lost">❌ Abgeschlossen (Verloren)</option>
-                  </select>
-                </div>
-              </div>
-
-              <div style="border: 1px solid var(--line); border-radius: 10px; overflow: hidden;">
-                <table id="matkonProjectTable">
-                  <thead>
-                    <tr style="background: rgba(245,158,11,.06);">
-                      <th>Projekt</th>
-                      <th>Firma / Kontakt</th>
-                      <th>Region</th>
-                      <th>Zugewiesen</th>
-                      <th>Status</th>
-                      <th>Checkliste</th>
-                      <th>Letzte Aktivität</th>
-                      <th>Aktionen</th>
-                    </tr>
-                  </thead>
-                  <tbody id="matkonProjectsBody">
-                    <tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px;">Keine Projekte vorhanden. Füge das erste Projekt hinzu!</td></tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- ANALYTICS VIEW -->
-        <div id="matkonAnalyticsView" style="display:none;">
-          <div class="card" style="margin-bottom: 16px;">
-            <div class="card-content">
-              <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
-                <div>
-                  <label class="label">Von</label>
-                  <input type="date" id="matkonDateFrom" class="input-field" style="margin:0;" onchange="renderMatkonAnalytics()">
-                </div>
-                <div>
-                  <label class="label">Bis</label>
-                  <input type="date" id="matkonDateTo" class="input-field" style="margin:0;" onchange="renderMatkonAnalytics()">
-                </div>
-                <div>
-                  <label class="label">Mitarbeiter</label>
-                  <select id="matkonAnalyticsMember" class="input-field" style="margin:0;" onchange="renderMatkonAnalytics()">
-                    <option value="">Alle Mitarbeiter</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="analytics-kpi-grid" id="matkonKpiGrid" style="margin-bottom: 20px;">
-            <div class="analytics-kpi-card"><div class="analytics-kpi-value" id="mkKpiCalls">0</div><div class="analytics-kpi-label">Calls</div></div>
-            <div class="analytics-kpi-card"><div class="analytics-kpi-value" id="mkKpiDemos">0</div><div class="analytics-kpi-label">Demos</div></div>
-            <div class="analytics-kpi-card highlight-good"><div class="analytics-kpi-value" id="mkKpiWon">0</div><div class="analytics-kpi-label">Abschlüsse</div></div>
-            <div class="analytics-kpi-card highlight-bad"><div class="analytics-kpi-value" id="mkKpiRejected">0</div><div class="analytics-kpi-label">Absagen</div></div>
-            <div class="analytics-kpi-card"><div class="analytics-kpi-value" id="mkKpiRevenue">CHF 0</div><div class="analytics-kpi-label">Umsatz</div></div>
-          </div>
-
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-            <div class="card">
-              <div class="card-head"><h3 class="card-title">Paket-Breakdown</h3></div>
-              <div class="card-content" id="matkonPackageBreakdown">
-                <div style="color:var(--muted);text-align:center;padding:20px;">Keine Daten</div>
-              </div>
-            </div>
-            <div class="card">
-              <div class="card-head"><h3 class="card-title">Top Absagegründe</h3></div>
-              <div class="card-content" id="matkonRejectionReasons">
-                <div style="color:var(--muted);text-align:center;padding:20px;">Keine Daten</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div><!-- end #matkon -->
+      <!-- #matkon section moved into #hkm > #hkmMatkonView (tab: Projekte) -->
 
       <!-- ═══════════════════════════════════════════════════════════════════ -->
       <!-- HKM – VISUMAT SALES GAMIFICATION                                    -->
@@ -1549,6 +1314,7 @@
         <div class="filter-tabs" style="margin-bottom:16px;">
           <button class="filter-tab active" data-hkm-tab="leaderboard">🏆 Leaderboard</button>
           <button class="filter-tab" data-hkm-tab="leads">🎯 Leads</button>
+          <button class="filter-tab" data-hkm-tab="matkon">🐾 Projekte</button>
           <button class="filter-tab" data-hkm-tab="analytics">📊 Analytics</button>
           <button class="filter-tab" data-hkm-tab="challenges">⚔️ Challenges</button>
           <button class="filter-tab" data-hkm-tab="admin" style="display:none;">⚙️ Admin</button>
@@ -1709,6 +1475,32 @@
               <button class="btn" onclick="openHkmTransferModal()">🦴 Knochen Transfer</button>
             </div>
           </div>
+
+          <!-- Lead Import Card -->
+          <div class="card" style="margin-bottom:16px;">
+            <div class="card-head">
+              <h3 class="card-title">📥 Lead-Import (CSV / Excel)</h3>
+              <div class="card-sub">Adressen importieren und automatisch zuweisen</div>
+            </div>
+            <div class="card-content">
+              <div style="display:grid;grid-template-columns:1fr 1fr auto auto;gap:12px;align-items:flex-end;">
+                <div>
+                  <label class="label">Datei (CSV / Excel)</label>
+                  <input type="file" id="hkmImportFile" accept=".csv,.xlsx,.xls" class="input-field" style="padding:6px;margin:0;">
+                </div>
+                <div>
+                  <label class="label">Alle Leads zuweisen an</label>
+                  <select id="hkmImportAssign" class="input-field" style="margin:0;">
+                    <option value="">Nicht zugewiesen</option>
+                  </select>
+                </div>
+                <button class="btn primary" onclick="hkmImportLeads()" style="white-space:nowrap;">📥 Importieren</button>
+                <button class="btn" onclick="hkmDownloadImportTemplate()" style="white-space:nowrap;">⬇️ Vorlage</button>
+              </div>
+              <div id="hkmImportResult" style="margin-top:12px;font-size:13px;display:none;padding:10px;border-radius:8px;"></div>
+            </div>
+          </div>
+
           <div class="card" style="margin-bottom:16px;">
             <div class="card-head"><h3 class="card-title">Mitarbeiter-Profile</h3></div>
             <div class="card-content" id="hkmAdminProfiles"></div>
@@ -1718,6 +1510,125 @@
             <div class="card-content" id="hkmMonthlyReset"></div>
           </div>
         </div>
+
+        <!-- ── MATKON / PROJEKTE ────────────────────────────────────── -->
+        <div id="hkmMatkonView" style="display:none;">
+          <div class="main-header" style="margin-bottom:16px;">
+            <div>
+              <div class="header-title" style="font-size:17px;">🐾 MatKon – Hund-Katze-Maus</div>
+              <div class="header-sub" id="matkonSubtitle">Sales Tracking für die MatKon-Vermarktung · Wir sind die Hunde, die Kunden sind die Katzen</div>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="btn primary" id="btnAddMatkonProject" onclick="openAddMatkonProjectModal()">+ Neues Projekt</button>
+            </div>
+          </div>
+
+          <!-- MatKon Sub-Tabs -->
+          <div class="filter-tabs" style="margin-bottom:16px;">
+            <button class="filter-tab active" data-matkon-tab="projects" onclick="setMatkonTab('projects')">📋 Projektliste</button>
+            <button class="filter-tab" data-matkon-tab="analytics" onclick="setMatkonTab('analytics')">📊 Analytics</button>
+          </div>
+
+          <!-- PROJEKTLISTE VIEW -->
+          <div id="matkonProjectsView">
+            <div class="card">
+              <div class="card-content">
+                <div style="display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr;gap:12px;margin-bottom:12px;">
+                  <div>
+                    <label class="label">Suche</label>
+                    <input type="text" id="matkonSearch" class="input-field" placeholder="Projektname, Firma..." style="margin:0;" oninput="renderMatkonProjects()">
+                  </div>
+                  <div>
+                    <label class="label">Region / Revier</label>
+                    <select id="matkonFilterTerritory" class="input-field" style="margin:0;" onchange="renderMatkonProjects()">
+                      <option value="">Alle Regionen</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="label">Zugewiesen an</label>
+                    <select id="matkonFilterMember" class="input-field" style="margin:0;" onchange="renderMatkonProjects()">
+                      <option value="">Alle Mitarbeiter</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="label">Status</label>
+                    <select id="matkonFilterStatus" class="input-field" style="margin:0;" onchange="renderMatkonProjects()">
+                      <option value="">Alle Status</option>
+                      <option value="new">🆕 Neu</option>
+                      <option value="in_progress">⏳ In Bearbeitung</option>
+                      <option value="closed_won">✅ Abgeschlossen (Gewonnen)</option>
+                      <option value="closed_lost">❌ Abgeschlossen (Verloren)</option>
+                    </select>
+                  </div>
+                </div>
+                <div style="border:1px solid var(--line);border-radius:10px;overflow:hidden;">
+                  <table id="matkonProjectTable">
+                    <thead>
+                      <tr style="background:rgba(245,158,11,.06);">
+                        <th>Projekt</th>
+                        <th>Firma / Kontakt</th>
+                        <th>Region</th>
+                        <th>Zugewiesen</th>
+                        <th>Status</th>
+                        <th>Checkliste</th>
+                        <th>Letzte Aktivität</th>
+                        <th>Aktionen</th>
+                      </tr>
+                    </thead>
+                    <tbody id="matkonProjectsBody">
+                      <tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px;">Keine Projekte vorhanden. Füge das erste Projekt hinzu!</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ANALYTICS VIEW -->
+          <div id="matkonAnalyticsView" style="display:none;">
+            <div class="card" style="margin-bottom:16px;">
+              <div class="card-content">
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+                  <div>
+                    <label class="label">Von</label>
+                    <input type="date" id="matkonDateFrom" class="input-field" style="margin:0;" onchange="renderMatkonAnalytics()">
+                  </div>
+                  <div>
+                    <label class="label">Bis</label>
+                    <input type="date" id="matkonDateTo" class="input-field" style="margin:0;" onchange="renderMatkonAnalytics()">
+                  </div>
+                  <div>
+                    <label class="label">Mitarbeiter</label>
+                    <select id="matkonAnalyticsMember" class="input-field" style="margin:0;" onchange="renderMatkonAnalytics()">
+                      <option value="">Alle Mitarbeiter</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="analytics-kpi-grid" id="matkonKpiGrid" style="margin-bottom:20px;">
+              <div class="analytics-kpi-card"><div class="analytics-kpi-value" id="mkKpiCalls">0</div><div class="analytics-kpi-label">Calls</div></div>
+              <div class="analytics-kpi-card"><div class="analytics-kpi-value" id="mkKpiDemos">0</div><div class="analytics-kpi-label">Demos</div></div>
+              <div class="analytics-kpi-card highlight-good"><div class="analytics-kpi-value" id="mkKpiWon">0</div><div class="analytics-kpi-label">Abschlüsse</div></div>
+              <div class="analytics-kpi-card highlight-bad"><div class="analytics-kpi-value" id="mkKpiRejected">0</div><div class="analytics-kpi-label">Absagen</div></div>
+              <div class="analytics-kpi-card"><div class="analytics-kpi-value" id="mkKpiRevenue">CHF 0</div><div class="analytics-kpi-label">Umsatz</div></div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+              <div class="card">
+                <div class="card-head"><h3 class="card-title">Paket-Breakdown</h3></div>
+                <div class="card-content" id="matkonPackageBreakdown">
+                  <div style="color:var(--muted);text-align:center;padding:20px;">Keine Daten</div>
+                </div>
+              </div>
+              <div class="card">
+                <div class="card-head"><h3 class="card-title">Top Absagegründe</h3></div>
+                <div class="card-content" id="matkonRejectionReasons">
+                  <div style="color:var(--muted);text-align:center;padding:20px;">Keine Daten</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div><!-- /hkmMatkonView -->
 
       </div><!-- end #hkm -->
 

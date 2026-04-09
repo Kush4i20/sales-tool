@@ -108,6 +108,27 @@
       document.getElementById('sidebarOverlay')?.classList.remove('show');
     }
 
+    window.switchKontakteTab = function(tab) {
+      // Update tab buttons
+      document.querySelectorAll('[data-kontakte-tab]').forEach(b => {
+        b.classList.toggle('active', b.dataset.kontakteTab === tab);
+      });
+      // Show/hide panels
+      const listeEl = document.getElementById('kontakteTabListe');
+      const crmEl   = document.getElementById('kontakteTabCrm');
+      if (listeEl) listeEl.style.display = tab === 'liste' ? '' : 'none';
+      if (crmEl)   crmEl.style.display   = tab === 'crm'   ? '' : 'none';
+      // Show/hide header buttons
+      document.getElementById('btnOpenTagManager').style.display = tab === 'liste' ? '' : 'none';
+      document.getElementById('btnAddContact').style.display     = tab === 'liste' ? '' : 'none';
+      // Render CRM when switching to it
+      if (tab === 'crm') {
+        renderCrmCompanies();
+        renderCrmCompanyDetail();
+        renderDuplicateResults();
+      }
+    };
+
     // LOAD / SAVE
     function saveContacts() {
       localStorage.setItem('phcontacts', JSON.stringify(state.contacts));
@@ -301,7 +322,6 @@
       const commBridgeTokenInput = document.getElementById('settingsCommBridgeToken');
       if (commBridgeTokenInput) commBridgeTokenInput.value = state.settings.commBridgeToken || '';
       applyRolePermissionsUI();
-      updateImmoRadarApiIndicator();
 
       const leadOwner = document.getElementById('leadOwner');
       const dealOwner = document.getElementById('dealOwner');
@@ -4543,6 +4563,69 @@
       return 'call';
     }
 
+    function renderDashboardMyDay() {
+      const el = document.getElementById('dashboardMyDayBar');
+      if (!el) return;
+
+      const today = new Date().toISOString().split('T')[0];
+      const todayStr = new Date().toLocaleDateString('de-CH', { weekday: 'long', day: 'numeric', month: 'long' });
+
+      // KPI counts
+      const callsToday    = state.contacts.filter(c => c.status === 'callstoday').length;
+      const followupToday = state.contacts.filter(c => c.status === 'followuptoday').length;
+      const sessionsToday = state.callLog.filter(x => {
+        const d = x.date || x.timestamp || '';
+        return d.startsWith(today);
+      }).length;
+      const vrToday       = state.contacts.filter(c => ['vrtoday','vrfollowup1','vrfollowup2','vrfollowup3'].includes(c.status)).length;
+      const tasksToday    = state.tasks.filter(t =>
+        t.dueDate && t.dueDate <= today && !['erledigt','abgesagt'].includes(t.status)
+      ).length;
+
+      // Task preview (max 5)
+      const tasksDue = state.tasks
+        .filter(t => t.dueDate && t.dueDate <= today && !['erledigt','abgesagt'].includes(t.status))
+        .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
+        .slice(0, 5);
+
+      const kpiCard = (icon, label, count, color, onclick) => `
+        <div class="analytics-kpi-card" onclick="${onclick}" style="cursor:pointer; border-left: 3px solid ${color};">
+          <div class="analytics-kpi-value" style="color:${count > 0 ? color : 'var(--muted)'};">${count}</div>
+          <div class="analytics-kpi-label">${icon} ${label}</div>
+        </div>`;
+
+      const taskRows = tasksDue.length === 0
+        ? '<div style="color:var(--muted);font-size:13px;padding:8px 0;">Keine offenen Aufgaben für heute.</div>'
+        : tasksDue.map(t => {
+            const overdue = t.dueDate < today;
+            return `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--line);">
+              <span style="font-size:13px;flex:1;">${t.title || '(ohne Titel)'}</span>
+              <span style="font-size:11px;color:${overdue ? 'var(--bad)' : 'var(--muted)'};">${overdue ? '⚠️ überfällig' : '📅 ' + new Date(t.dueDate).toLocaleDateString('de-CH')}</span>
+              <button class="btn" style="padding:2px 8px;font-size:11px;" onclick="setView('aufgaben')">→</button>
+            </div>`;
+          }).join('');
+
+      el.innerHTML = `
+        <div style="margin-bottom:16px;">
+          <div style="font-size:12px;color:var(--muted);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;">Heute · ${todayStr}</div>
+          <div class="analytics-kpi-grid" style="grid-template-columns:repeat(auto-fill,minmax(140px,1fr));margin-bottom:16px;">
+            ${kpiCard('📞', 'Heute anrufen',  callsToday,    '#3b82f6', "setView('session');setSessionMode('call')")}
+            ${kpiCard('🔔', 'Followup heute', followupToday, '#ea580c', "setView('session');setSessionMode('followup')")}
+            ${kpiCard('✅', 'Sessions heute', sessionsToday, '#10b981', "setView('session')")}
+            ${kpiCard('🎥', 'VR fällig',      vrToday,       '#8b5cf6', "setView('session');setSessionMode('vr')")}
+            ${kpiCard('📋', 'Aufgaben heute', tasksToday,    '#f59e0b', "setView('aufgaben')")}
+          </div>
+          ${tasksToday > 0 ? `
+          <div class="card" style="margin-bottom:16px;">
+            <div class="card-content" style="padding:12px 16px;">
+              <div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:8px;">OFFENE AUFGABEN HEUTE</div>
+              ${taskRows}
+              ${tasksToday > 5 ? `<div style="font-size:12px;color:var(--accent);padding-top:8px;cursor:pointer;" onclick="setView('aufgaben')">+ ${tasksToday - 5} weitere → Aufgaben öffnen</div>` : ''}
+            </div>
+          </div>` : ''}
+        </div>`;
+    }
+
     function renderAnalytics() {
       // ── Mitarbeiter-Dropdown (rollenbasiert) aktuell halten ─────
       populateAnalyticsMemberFilter();
@@ -5550,6 +5633,20 @@
       document.querySelectorAll('[data-session-mode]').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.sessionMode === mode);
       });
+
+      const isVr = mode === 'vr';
+      const vrPanel   = document.getElementById('vrSessionPanel');
+      const stdStart  = document.getElementById('btnStartUnifiedSession');
+      const stdInfo   = document.querySelector('#session .two-col');
+
+      if (vrPanel)  vrPanel.style.display  = isVr ? '' : 'none';
+      if (stdStart) stdStart.closest('.two-col').style.display = isVr ? 'none' : '';
+
+      if (isVr) {
+        VrSession.updateInfo();
+        return; // VR has its own logic, skip standard session mode setup
+      }
+
       renderSessionResultButtons(mode);
       updateSessionContactPersonVisibility(mode);
 
@@ -5977,15 +6074,17 @@
         const selectContactId = this.selectedPersonId || contact.id;
         const selected = state.contacts.find(c => c.id === selectContactId) || contact;
 
-        document.getElementById('sessionContactName').textContent = contact.firma || getSessionPersonDisplayName(selected);
-        document.getElementById('sessionContactCompany').textContent = `Kontaktperson: ${getSessionPersonDisplayName(selected)}`;
+        // Top: always company name; sub-line: selected person
+        document.getElementById('sessionContactName').textContent = contact.firma || '(Firma unbekannt)';
+        document.getElementById('sessionContactCompany').textContent = `Ansprechperson: ${getSessionPersonDisplayName(selected)}`;
         const phaseLabelsSession = { coldcall: 'Phase 1 Cold Call', mail: 'Phase 2 Mail', followup1: 'Phase 3 FU1', followup2: 'Phase 4 FU2', followup3: 'Phase 5 FU3' };
         const phaseInfo = contact.phase ? ` | ${phaseLabelsSession[contact.phase] || contact.phase}` : '';
         const ratingInfo = contact.rating ? ` | ${'★'.repeat(contact.rating)}` : '';
         document.getElementById('sessionContactStatus').textContent = getStatusLabel(contact.status || 'new') + phaseInfo + ratingInfo;
+        // Details: always from selected person's own fields
         document.getElementById('sessionContactDetails').textContent = [
           selected.telefon && '📞 ' + selected.telefon,
-          selected.email && '📧 ' + selected.email,
+          selected.email   && '📧 ' + selected.email,
           selected.linkedin && '💼 ' + selected.linkedin,
           contact.ortschaft && '📍 ' + contact.ortschaft
         ].filter(Boolean).join(' | ');
@@ -8164,7 +8263,6 @@ www.livetour.ch`;
       renderCrmCompanyDetail();
       renderDuplicateResults();
       updateKontakteStats();
-      renderImmoRadar();
       renderVrTrackingTable();
       renderTasks();
       renderMembersList();
@@ -8173,7 +8271,8 @@ www.livetour.ch`;
       renderMemberSwitcher();
       renderMemberColorPalette();
 
-      setView('kontakte');
+      setView('analytics');
+      renderDashboardMyDay();
       setSessionMode('call');
 
       document.getElementById('btnThemeToggle')?.addEventListener('click', toggleTheme);
@@ -8203,27 +8302,26 @@ www.livetour.ch`;
       document.querySelectorAll('[data-view]').forEach(btn => {
         btn.addEventListener('click', () => {
           setView(btn.dataset.view);
-          if (btn.dataset.view === 'crm') {
-            renderCrmCompanies();
-            renderCrmCompanyDetail();
-            renderDuplicateResults();
+          if (btn.dataset.view === 'kontakte') {
+            // Restore correct button visibility for active tab
+            const activeTab = document.querySelector('[data-kontakte-tab].active')?.dataset.kontakteTab || 'liste';
+            document.getElementById('btnOpenTagManager').style.display = activeTab === 'liste' ? '' : 'none';
+            document.getElementById('btnAddContact').style.display = activeTab === 'liste' ? '' : 'none';
+            if (activeTab === 'crm') {
+              renderCrmCompanies();
+              renderCrmCompanyDetail();
+              renderDuplicateResults();
+            }
           }
           if (btn.dataset.view === 'analytics') {
+            renderDashboardMyDay();
             populateAnalyticsMemberFilter();
             renderAnalytics();
-          }
-          if (btn.dataset.view === 'vrundgang') {
-            renderVrPreview();
-            renderVrTrackingTable();
-            VrSession.updateInfo();
           }
           if (btn.dataset.view === 'aufgaben') {
             if (state.tasksTab === 'list')      renderTasks();
             if (state.tasksTab === 'analytics') renderTasksAnalytics();
             if (state.tasksTab === 'linkedin')  renderLiTracking();
-          }
-          if (btn.dataset.view === 'immoradar') {
-            renderImmoRadar();
           }
           if (btn.dataset.view === 'hkm') {
             window.initHkmOnView?.();
@@ -8231,10 +8329,7 @@ www.livetour.ch`;
         });
       });
 
-      document.getElementById('btnIrRefresh')?.addEventListener('click', renderImmoRadar);
-      const irPageSizeElInit = document.getElementById('irPageSize');
-      if (irPageSizeElInit) irPageSizeElInit.value = String(state.immoRadar.pageSize || 12);
-      document.getElementById('btnIrApiKey')?.addEventListener('click', openImmoRadarApiModal);
+      // ImmoRadar removed 2026-04 (scoring functions kept for future use)
 
       // AUFGABEN TABS
       document.querySelectorAll('[data-tasks-tab]').forEach(btn => {
@@ -8721,7 +8816,8 @@ www.livetour.ch`;
         state.vrQueue = ids;
         state.selectedContacts.clear();
         renderKontakte();
-        setView('vrundgang');
+        setView('session');
+        setSessionMode('vr');
         VrSession.start(contacts);
         showToast(`🎥 VR-Session mit ${contacts.length} Kontakten gestartet`);
       });

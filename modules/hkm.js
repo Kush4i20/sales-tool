@@ -137,6 +137,7 @@ function setHkmTab(tab) {
   const views = {
     leaderboard: 'hkmLeaderboardView',
     leads: 'hkmLeadsView',
+    matkon: 'hkmMatkonView',
     analytics: 'hkmAnalyticsView',
     challenges: 'hkmChallengesView',
     admin: 'hkmAdminView'
@@ -147,6 +148,7 @@ function setHkmTab(tab) {
   });
   if (tab === 'leaderboard')  renderHkmLeaderboard();
   if (tab === 'leads')        renderHkmLeads();
+  if (tab === 'matkon')       { renderMatkonProjects?.(); renderMatkonMemberFilter?.(); }
   if (tab === 'analytics')    renderHkmAnalytics();
   if (tab === 'challenges')   renderHkmChallenges();
   if (tab === 'admin')        renderHkmAdmin();
@@ -975,6 +977,7 @@ function renderHkmAdmin() {
     document.getElementById('hkmAdminView').innerHTML = '<div class="hkm-empty">Nur für Admins</div>';
     return;
   }
+  hkmPopulateImportAssign();
   renderHkmAdminProfiles();
   renderHkmMonthlyReset();
 }
@@ -1154,6 +1157,131 @@ function triggerHkmCelebration(neuRang, bonusChf) {
 
 // Make accessible globally (called from firebase.js after rang update)
 window.triggerHkmCelebration = triggerHkmCelebration;
+
+// ─── Lead Import (CSV / Excel) ────────────────────────────────────────────────
+
+function hkmNormalizeHeader(h) {
+  return h.toLowerCase()
+    .replace(/ä/g,'ae').replace(/ö/g,'oe').replace(/ü/g,'ue').replace(/ß/g,'ss')
+    .replace(/[^a-z0-9]/g,'');
+}
+
+function hkmMapRow(row, headers) {
+  // Map normalized header → field
+  const map = {
+    projektname: 'projektname', projekt: 'projektname', projectname: 'projektname',
+    firma: 'firma', company: 'firma', unternehmen: 'firma',
+    kontakt: 'kontakt', kontaktperson: 'kontakt', contact: 'kontakt', ansprechpartner: 'kontakt',
+    email: 'email', mail: 'email',
+    telefon: 'telefon', tel: 'telefon', phone: 'telefon', mobile: 'telefon',
+    region: 'region', revier: 'region', gebiet: 'region',
+    url: 'url', website: 'url', webseite: 'url', homepage: 'url',
+    notizen: 'notizen', notes: 'notizen', kommentar: 'notizen',
+  };
+  const out = {};
+  headers.forEach((h, i) => {
+    const norm = hkmNormalizeHeader(h);
+    const field = map[norm];
+    if (field && row[i] !== undefined && row[i] !== '') {
+      out[field] = String(row[i]).trim();
+    }
+  });
+  return out;
+}
+
+window.hkmDownloadImportTemplate = function() {
+  const headers = ['Projektname','Firma','Kontaktperson','Email','Telefon','Region','URL','Notizen'];
+  const csv = headers.join(';') + '\nBeispiel Projekt;Musterfirma AG;Max Muster;max@muster.ch;+41 79 000 00 00;zuerich;https://beispiel.ch;';
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = 'visumat_import_vorlage.csv'; a.click();
+  URL.revokeObjectURL(url);
+};
+
+window.hkmImportLeads = async function() {
+  const fileInput = document.getElementById('hkmImportFile');
+  const assignTo  = document.getElementById('hkmImportAssign')?.value || '';
+  const resultEl  = document.getElementById('hkmImportResult');
+  if (!fileInput?.files?.length) {
+    if (resultEl) { resultEl.textContent = '⚠️ Bitte zuerst eine Datei auswählen.'; resultEl.style.display = ''; resultEl.style.background = 'rgba(234,88,12,.1)'; }
+    return;
+  }
+  const file = fileInput.files[0];
+  const name = file.name.toLowerCase();
+
+  let rows = [];   // array of arrays
+  let headers = [];
+
+  try {
+    if (name.endsWith('.csv') || name.endsWith('.txt') || name.endsWith('.tsv')) {
+      const text = await file.text();
+      const lines = text.split(/\r?\n/).filter(l => l.trim());
+      const delim = text.includes(';') ? ';' : (text.includes('\t') ? '\t' : ',');
+      const parsed = lines.map(l => l.split(delim).map(c => c.replace(/^"|"$/g,'').trim()));
+      headers = parsed[0];
+      rows = parsed.slice(1);
+    } else if (name.endsWith('.xlsx') || name.endsWith('.xls')) {
+      const buf = await file.arrayBuffer();
+      const wb  = XLSX.read(buf, { type: 'array' });
+      const ws  = wb.Sheets[wb.SheetNames[0]];
+      const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+      headers = data[0];
+      rows = data.slice(1);
+    } else {
+      throw new Error('Dateiformat nicht unterstützt. Bitte CSV oder Excel verwenden.');
+    }
+  } catch(e) {
+    if (resultEl) { resultEl.textContent = '❌ Fehler: ' + e.message; resultEl.style.display = ''; resultEl.style.background = 'rgba(239,68,68,.1)'; }
+    return;
+  }
+
+  let imported = 0, skipped = 0;
+  for (const row of rows) {
+    if (row.every(c => !String(c).trim())) { skipped++; continue; }
+    const mapped = hkmMapRow(row, headers);
+    if (!mapped.projektname && !mapped.firma) { skipped++; continue; }
+
+    const lead = {
+      projektname: mapped.projektname || mapped.firma || '(Unbekannt)',
+      firma:       mapped.firma || '',
+      kontakt:     mapped.kontakt || '',
+      email:       mapped.email || '',
+      telefon:     mapped.telefon || '',
+      region:      mapped.region || '',
+      url:         mapped.url || '',
+      notizen:     mapped.notizen || '',
+      typ:         'import',
+      status:      'neu',
+      assigned_to: assignTo || null,
+      checklist:   {}
+    };
+
+    try {
+      await window.saveHkmLead(lead);
+      imported++;
+    } catch(e) {
+      skipped++;
+    }
+  }
+
+  if (resultEl) {
+    resultEl.textContent = `✅ ${imported} Lead${imported !== 1 ? 's' : ''} importiert${skipped > 0 ? ` · ${skipped} übersprungen` : ''}.`;
+    resultEl.style.display = '';
+    resultEl.style.background = 'rgba(16,185,129,.1)';
+    resultEl.style.color = '#065f46';
+  }
+  fileInput.value = '';
+  renderHkmLeads();
+};
+
+// Populate assign dropdown in Admin → Import card
+function hkmPopulateImportAssign() {
+  const sel = document.getElementById('hkmImportAssign');
+  if (!sel) return;
+  const profiles = Object.entries(state.hkmProfiles).map(([uid, p]) => ({ uid, name: p.name || uid }));
+  sel.innerHTML = '<option value="">Nicht zugewiesen</option>' +
+    profiles.map(p => `<option value="${p.uid}">${p.name}</option>`).join('');
+}
 
 // ─── Event listener setup ─────────────────────────────────────────────────────
 
