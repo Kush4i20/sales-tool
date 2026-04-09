@@ -381,8 +381,9 @@ function renderHkmLeads() {
         ${isComplete ? '<span style="color:#10b981;font-size:16px;">✓</span>' : '<span style="color:#ef4444;font-size:16px;">○</span>'}
       </td>
       <td style="font-size:11px;color:var(--muted);">${lastAct ? hkmTimeAgo(lastAct.createdAt) : '–'}</td>
-      <td>
+      <td style="display:flex;gap:4px;">
         <button class="btn" style="padding:3px 10px;font-size:12px;" onclick="event.stopPropagation();openHkmLeadModal('${l.id}')">✏️</button>
+        ${hkmIsAdmin() ? `<button class="btn" style="padding:3px 8px;font-size:12px;border-color:#ef4444;color:#ef4444;" onclick="event.stopPropagation();hkmDeleteLead('${l.id}','${(l.projektname||l.firma||'').replace(/'/g,'')}')" title="Lead löschen">🗑️</button>` : ''}
       </td>
     </tr>`;
   }).join('');
@@ -523,6 +524,19 @@ function openHkmLeadModal(leadId) {
 function closeHkmLeadModal() {
   document.getElementById('hkmLeadModal').style.display = 'none';
 }
+
+async function hkmDeleteLead(leadId, name) {
+  if (!hkmIsAdmin()) { showToast('Nur Admins dürfen Leads löschen'); return; }
+  if (!confirm(`Lead "${name}" wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.`)) return;
+  try {
+    await window.deleteHkmLead(leadId);
+    showToast('🗑️ Lead gelöscht');
+    renderHkmLeads();
+  } catch(e) {
+    showToast('❌ Fehler: ' + e.message);
+  }
+}
+window.hkmDeleteLead = hkmDeleteLead;
 
 async function saveHkmLeadFromModal() {
   const id = document.getElementById('hkmLeadEditId').value;
@@ -1307,6 +1321,14 @@ document.addEventListener('DOMContentLoaded', function() {
   // Analytics apply
   const analyticsApply = document.getElementById('hkmAnalyticsApply');
   if (analyticsApply) analyticsApply.addEventListener('click', renderHkmAnalytics);
+
+  // Click outside modal to close
+  ['hkmLeadModal', 'hkmLeadDetailModal', 'hkmActivityModal', 'hkmTransferModal'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('click', e => {
+      if (e.target === el) el.style.display = 'none';
+    });
+  });
 });
 
 // Called by nav click
