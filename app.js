@@ -4567,22 +4567,48 @@
       const el = document.getElementById('dashboardMyDayBar');
       if (!el) return;
 
-      const today = new Date().toISOString().split('T')[0];
+      const today    = new Date().toISOString().split('T')[0];
       const todayStr = new Date().toLocaleDateString('de-CH', { weekday: 'long', day: 'numeric', month: 'long' });
+      const role     = getCurrentRole();
+
+      // Determine default member filter: own linked member, or 'all' for admin with no link
+      if (!state.dashMyDayMember) {
+        const ownId = getCurrentUserLinkedMemberId();
+        state.dashMyDayMember = ownId || 'all';
+      }
+      const activeMember = state.dashMyDayMember;
+
+      // Member dropdown options
+      const memberOptions = role === 'admin'
+        ? `<option value="all"${activeMember === 'all' ? ' selected' : ''}>Alle Mitarbeiter</option>` +
+          state.members.map(m =>
+            `<option value="${m.id}"${activeMember === m.id ? ' selected' : ''}>${m.vorname} ${m.nachname}</option>`
+          ).join('')
+        : (() => {
+            const m = state.members.find(x => x.id === activeMember);
+            return m ? `<option value="${m.id}" selected>${m.vorname} ${m.nachname}</option>` : '';
+          })();
+
+      // Filter contacts by member
+      const mFilter = c => activeMember === 'all' || c.memberId === activeMember;
 
       // KPI counts
-      const callsToday    = state.contacts.filter(c => c.status === 'callstoday').length;
-      const followupToday = state.contacts.filter(c => c.status === 'followuptoday').length;
+      const callsToday    = state.contacts.filter(c => mFilter(c) && c.status === 'callstoday').length;
+      const followupToday = state.contacts.filter(c => mFilter(c) && c.status === 'followuptoday').length;
+      const contactMap    = new Map(state.contacts.map(c => [c.id, c]));
       const sessionsToday = state.callLog.filter(x => {
-        const d = x.date || x.timestamp || '';
-        return d.startsWith(today);
+        const d = String(x.date || x.timestamp || '');
+        if (!d.startsWith(today)) return false;
+        if (activeMember === 'all') return true;
+        const c = contactMap.get(x.contactId);
+        return c?.memberId === activeMember;
       }).length;
-      const vrToday       = state.contacts.filter(c => ['vrtoday','vrfollowup1','vrfollowup2','vrfollowup3'].includes(c.status)).length;
+      const vrToday       = state.contacts.filter(c => mFilter(c) && ['vrtoday','vrfollowup1','vrfollowup2','vrfollowup3'].includes(c.status)).length;
       const tasksToday    = state.tasks.filter(t =>
         t.dueDate && t.dueDate <= today && !['erledigt','abgesagt'].includes(t.status)
       ).length;
 
-      // Task preview (max 5)
+      // Task preview (max 5) — tasks not filtered by member (org-wide)
       const tasksDue = state.tasks
         .filter(t => t.dueDate && t.dueDate <= today && !['erledigt','abgesagt'].includes(t.status))
         .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
@@ -4607,7 +4633,15 @@
 
       el.innerHTML = `
         <div style="margin-bottom:16px;">
-          <div style="font-size:12px;color:var(--muted);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;">Heute · ${todayStr}</div>
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap;">
+            <div style="font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;flex:1;">Heute · ${todayStr}</div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-size:12px;color:var(--muted);">Ansicht:</span>
+              <select id="dashMyDayMemberSel" class="input-field" style="margin:0;min-width:160px;font-size:13px;" onchange="state.dashMyDayMember=this.value;renderDashboardMyDay()" ${role !== 'admin' ? 'disabled' : ''}>
+                ${memberOptions}
+              </select>
+            </div>
+          </div>
           <div class="analytics-kpi-grid" style="grid-template-columns:repeat(auto-fill,minmax(140px,1fr));margin-bottom:16px;">
             ${kpiCard('📞', 'Heute anrufen',  callsToday,    '#3b82f6', "setView('session');setSessionMode('call')")}
             ${kpiCard('🔔', 'Followup heute', followupToday, '#ea580c', "setView('session');setSessionMode('followup')")}
@@ -7162,6 +7196,89 @@ www.livetour.ch`;
       renderUserAccountsList();
     }
 
+    // ── UID Migration ─────────────────────────────────────────────────────────
+    // Old UIDs that all belonged to Timmo (current UID: Ju7AwROL4pb46Dt2xLVnUKbeC0k2)
+    const OLD_UIDS = [
+      'Fhe983SGRpgw3GPZ3f8DVB3nqm32',
+      'T0gmPrUhrEXVefpxiyDnvQqgA252',
+      'V5nn7y3XKqSbR4j4oSpGWDdsfkx2',
+      'Z1Ql9qpqOvUiKSfhz1CC0W897Wn1'
+    ];
+
+    function initUidMigrationCard() {
+      if (getCurrentRole() !== 'admin') return;
+      const card = document.getElementById('uidMigrationCard');
+      if (!card) return;
+
+      // Find memberIds linked to old UIDs
+      const oldAccounts = (state.userAccounts || []).filter(u => OLD_UIDS.includes(u.uid));
+      const oldMemberIds = [...new Set(oldAccounts.map(u => u.memberId).filter(Boolean))];
+      const currentMemberId = getCurrentUserLinkedMemberId();
+      const currentMember = state.members.find(m => m.id === currentMemberId);
+
+      // Count contacts still on old member IDs
+      const affectedContacts = state.contacts.filter(c => oldMemberIds.includes(c.memberId)).length;
+
+      const statusEl = document.getElementById('uidMigrationStatus');
+      if (statusEl) {
+        if (affectedContacts === 0 && oldAccounts.length === 0) {
+          statusEl.textContent = '✅ Keine Migration notwendig — alle Daten sind bereits korrekt zugeordnet.';
+          card.style.display = '';
+          document.getElementById('btnRunUidMigration').style.display = 'none';
+          return;
+        }
+        const lines = [
+          `Aktueller Account: ${currentMember ? currentMember.vorname + ' ' + currentMember.nachname : '(kein Mitarbeiter verknüpft)'}`,
+          `Alte Accounts gefunden: ${oldAccounts.length} (${oldAccounts.map(u => u.name || u.email || u.uid.slice(0,8)).join(', ')})`,
+          `Kontakte auf alten Mitarbeiter-IDs: ${affectedContacts}`,
+        ];
+        statusEl.innerHTML = lines.map(l => `<div>• ${l}</div>`).join('');
+      }
+      card.style.display = '';
+    }
+
+    window.runUidMigration = async function() {
+      if (getCurrentRole() !== 'admin') return;
+      const currentMemberId = getCurrentUserLinkedMemberId();
+      if (!currentMemberId) {
+        alert('Bitte zuerst deinen Account mit einem Mitarbeiter-Profil verknüpfen (Einstellungen → Benutzer).');
+        return;
+      }
+
+      const oldAccounts  = (state.userAccounts || []).filter(u => OLD_UIDS.includes(u.uid));
+      const oldMemberIds = [...new Set(oldAccounts.map(u => u.memberId).filter(Boolean))];
+
+      let movedContacts = 0;
+
+      // Reassign contacts
+      state.contacts.forEach(c => {
+        if (oldMemberIds.includes(c.memberId)) {
+          c.memberId = currentMemberId;
+          movedContacts++;
+        }
+      });
+
+      if (movedContacts > 0) {
+        saveContacts();
+      }
+
+      // Remove old userAccount entries (they were dummy accounts, not real users)
+      const keepUids = new Set(OLD_UIDS);
+      state.userAccounts = (state.userAccounts || []).filter(u => !keepUids.has(u.uid));
+      saveUserAccounts();
+
+      const resultEl = document.getElementById('uidMigrationResult');
+      if (resultEl) {
+        resultEl.textContent = `✅ Migration abgeschlossen: ${movedContacts} Kontakte auf deinen Account übertragen.`;
+        resultEl.style.display = '';
+        resultEl.style.background = 'rgba(16,185,129,.1)';
+        resultEl.style.color = '#065f46';
+      }
+      document.getElementById('btnRunUidMigration').disabled = true;
+      renderKontakte();
+      renderUserAccountsList();
+    };
+
     function renderUserAccountsList() {
       const el = document.getElementById('userAccountsList');
       if (!el) return;
@@ -8270,6 +8387,7 @@ www.livetour.ch`;
       renderUserAccountsList();
       renderMemberSwitcher();
       renderMemberColorPalette();
+      initUidMigrationCard();
 
       setView('analytics');
       renderDashboardMyDay();

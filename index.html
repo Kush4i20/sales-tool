@@ -885,6 +885,18 @@
           </div>
         </div>
 
+        <div class="card" id="uidMigrationCard" style="display:none;">
+          <div class="card-head">
+            <h3 class="card-title">🔀 UID-Migration (Admin)</h3>
+            <div class="card-sub">Daten von alten Accounts auf den aktuellen Benutzer übertragen</div>
+          </div>
+          <div class="card-content">
+            <div id="uidMigrationStatus" style="font-size:13px;color:var(--muted);margin-bottom:12px;"></div>
+            <button class="btn primary" onclick="runUidMigration()" id="btnRunUidMigration">🔀 Migration ausführen</button>
+            <div id="uidMigrationResult" style="margin-top:12px;font-size:13px;display:none;padding:10px;border-radius:8px;"></div>
+          </div>
+        </div>
+
         <div class="card">
           <div class="card-head"><h3 class="card-title">Daten</h3></div>
           <div class="card-content" style="overflow-x: auto;">
