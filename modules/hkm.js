@@ -108,8 +108,10 @@ function hkmOwnUid() {
 function hkmIsAdmin() {
   const uid = hkmOwnUid();
   if (!uid) return false;
-  const profile = state.hkmProfiles[uid];
-  return profile?.role === 'admin';
+  // HKM-specific profile role
+  if (state.hkmProfiles[uid]?.role === 'admin') return true;
+  // Fall back: CRM admin also gets HKM admin rights
+  return state.settings?.userRole === 'admin';
 }
 
 function hkmGetProfileByUid(uid) {
