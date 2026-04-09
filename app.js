@@ -6166,7 +6166,7 @@
         this.selectedPersonId = sessionPerson.id || null;
 
         if (this.mode === 'call') {
-          applyStatusAndNotes(originalContact, result, '', timestamp);
+          applyStatusAndNotes(originalContact, result, notes, timestamp);
           addSessionNoteToCompany(originalContact, sessionPerson, this.mode, result, notes, timestamp);
 
           if (result === 'mailsend') {
@@ -6201,6 +6201,7 @@
             composeTarget = normalizeEmail(sessionPerson.email || '') ? sessionPerson : originalContact;
           }
           originalContact.updatedAt = timestamp;
+          addNotesHistory(originalContact, notes, result === 'nointerest' ? 'nointerest' : 'mailsend');
           addSessionNoteToCompany(originalContact, sessionPerson, this.mode, result === 'nointerest' ? 'nointerest' : 'mailsend', notes, timestamp);
           state.callLog.push({
             id: Math.random().toString(36).substr(2, 9),
@@ -6217,7 +6218,7 @@
           });
           saveCallLog();
         } else if (this.mode === 'followup') {
-          applyStatusAndNotes(originalContact, result, '', timestamp);
+          applyStatusAndNotes(originalContact, result, notes, timestamp);
           addSessionNoteToCompany(originalContact, sessionPerson, this.mode, result, notes, timestamp);
           if (result === 'mailsend') {
             composeTarget = normalizeEmail(sessionPerson.email || '') ? sessionPerson : originalContact;
@@ -6247,6 +6248,7 @@
           }
           originalContact.source = 'linkedin';
           originalContact.updatedAt = timestamp;
+          addNotesHistory(originalContact, notes, result);
           if (['request', 'message', 'followup'].includes(result)) {
             originalContact.liLastOutboundDate = timestamp;
           }
