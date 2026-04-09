@@ -1002,9 +1002,14 @@ function renderHkmAdminProfiles() {
   const el = document.getElementById('hkmAdminProfiles');
   if (!el) return;
   const profiles = Object.entries(state.hkmProfiles).map(([uid, p]) => ({ uid, ...p }));
-  if (!profiles.length) { el.innerHTML = '<div class="hkm-empty">Keine Profile</div>'; return; }
 
-  el.innerHTML = `<div style="border:1px solid var(--line);border-radius:10px;overflow:hidden;">
+  // Find CRM users not yet in HKM
+  const registeredUids = new Set(profiles.map(p => p.uid));
+  const unregistered = (state.userAccounts || []).filter(u => u.uid && !registeredUids.has(u.uid));
+
+  const profilesHtml = profiles.length === 0
+    ? '<div class="hkm-empty" style="padding:16px;">Noch keine HKM-Profile vorhanden.</div>'
+    : `<div style="border:1px solid var(--line);border-radius:10px;overflow:hidden;">
     <table style="width:100%;">
       <thead><tr style="background:rgba(245,158,11,.06);">
         <th>Name</th><th>Rang</th><th>🦴 Knochen</th><th>🐱 Katzen</th><th>💰 Provision</th><th>🔥 Streak</th><th>Rolle</th><th>Aktionen</th>
@@ -1029,7 +1034,34 @@ function renderHkmAdminProfiles() {
       </tbody>
     </table>
   </div>`;
+
+  const unregisteredHtml = unregistered.length === 0 ? '' : `
+    <div style="margin-top:16px;">
+      <div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px;">Noch nicht im HKM-System</div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        ${unregistered.map(u => `
+          <div style="display:flex;align-items:center;gap:10px;padding:10px;border:1px dashed var(--line);border-radius:8px;background:var(--bg);">
+            <div style="flex:1;">
+              <div style="font-weight:600;font-size:13px;">${u.name || u.email || u.uid}</div>
+              <div style="font-size:11px;color:var(--muted);">${u.email || ''}</div>
+            </div>
+            <button class="btn good" style="font-size:11px;padding:4px 12px;" onclick="hkmAddUserToSystem('${u.uid}','${(u.name||'').replace(/'/g,'')}','${(u.email||'').replace(/'/g,'')}')">➕ Zu HKM hinzufügen</button>
+          </div>`).join('')}
+      </div>
+    </div>`;
+
+  el.innerHTML = profilesHtml + unregisteredHtml;
 }
+
+window.hkmAddUserToSystem = async function(uid, name, email) {
+  try {
+    await window.hkmCreateProfile(uid, name, email);
+    showToast(`✅ ${name || uid} zum HKM-System hinzugefügt`);
+    renderHkmAdmin();
+  } catch(e) {
+    showToast('❌ Fehler: ' + e.message);
+  }
+};
 
 function renderHkmMonthlyReset() {
   const el = document.getElementById('hkmMonthlyReset');

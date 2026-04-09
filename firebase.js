@@ -461,6 +461,24 @@ async function hkmEnsureProfile(uid, name, email) {
   }
 }
 
+window.hkmCreateProfile = async (uid, name, email) => {
+  if (!currentUser) throw new Error('not-authenticated');
+  await set(ref(db, `hkm/profiles/${uid}`), {
+    uid,
+    name:          name || '',
+    email:         email || '',
+    role:          'user',
+    rang:          'dackel',
+    knochen:       0,
+    katzen_count:  0,
+    provision_total: 0,
+    streak_days:   0,
+    last_active_date: '',
+    boni_ausgezahlt: [],
+    createdAt:     new Date().toISOString()
+  });
+};
+
 // ─── Login UI elements ─────────────────────────────────────────────────────────
 
 const loginBtn = document.getElementById('btnLogin');
