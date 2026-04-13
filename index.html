@@ -1809,6 +1809,26 @@
             <div class="card-head"><h3 class="card-title">Monats-Reset</h3></div>
             <div class="card-content" id="hkmMonthlyReset"></div>
           </div>
+
+          <div class="card" style="margin-top:16px;border:1px solid rgba(239,68,68,.3);">
+            <div class="card-head" style="padding-bottom:8px;">
+              <h3 class="card-title" style="color:#ef4444;">⚠️ Testdaten zurücksetzen</h3>
+            </div>
+            <div class="card-content">
+              <p style="font-size:12px;color:var(--muted);margin-bottom:14px;">
+                Löscht <strong>alle Leads, alle Aktivitäten</strong> und setzt die <strong>Knochen / Rang / Provision</strong> aller Profile auf 0 zurück.
+                Mitarbeiter-Profile (Name, Rolle) bleiben erhalten. Diese Aktion kann <strong>nicht rückgängig</strong> gemacht werden.
+              </p>
+              <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                <button class="btn" onclick="hkmResetTestData('leads_activities')" style="border-color:#ef4444;color:#ef4444;">
+                  🗑️ Nur Leads &amp; Aktivitäten löschen
+                </button>
+                <button class="btn" onclick="hkmResetTestData('full')" style="background:#ef4444;color:#fff;border-color:#ef4444;">
+                  💣 Alles zurücksetzen (inkl. Knochen &amp; Rang)
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- ── MATKON / PROJEKTE ────────────────────────────────────── -->

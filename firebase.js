@@ -208,6 +208,34 @@ window.deleteHkmLead = async (leadId) => {
   await set(ref(db, `hkm/leads/${leadId}`), null);
 };
 
+// Reset all VisuMat test data (admin only)
+window.hkmFirebaseReset = async (mode) => {
+  if (!currentUser) throw new Error('not-authenticated');
+  // Delete all leads and activities
+  await set(ref(db, 'hkm/leads'),      null);
+  await set(ref(db, 'hkm/activities'), null);
+  if (mode === 'full') {
+    // Reset every profile's gamification stats to zero; keep name/role/memberId
+    const snap = await get(ref(db, 'hkm/profiles'));
+    if (snap.exists()) {
+      const updates = [];
+      snap.forEach(child => {
+        const uid = child.key;
+        updates.push(
+          set(ref(db, `hkm/profiles/${uid}/knochen`),          0),
+          set(ref(db, `hkm/profiles/${uid}/rang`),             'dackel'),
+          set(ref(db, `hkm/profiles/${uid}/provision_total`),  0),
+          set(ref(db, `hkm/profiles/${uid}/katzen_count`),     0),
+          set(ref(db, `hkm/profiles/${uid}/boni_ausgezahlt`),  []),
+          set(ref(db, `hkm/profiles/${uid}/streak_days`),      0),
+          set(ref(db, `hkm/profiles/${uid}/last_active_date`), null)
+        );
+      });
+      await Promise.all(updates);
+    }
+  }
+};
+
 window.saveHkmChallenge = async (ch) => {
   if (!currentUser) throw new Error('not-authenticated');
   const path = ch.id

@@ -2251,6 +2251,34 @@ function hkmPopulateImportAssign() {
     profiles.map(p => `<option value="${p.uid}">${p.name}</option>`).join('');
 }
 
+// ─── Testdaten-Reset (Admin only) ────────────────────────────────────────────
+
+window.hkmResetTestData = async function(mode) {
+  if (!hkmIsAdmin()) { showToast('❌ Nur Admins können Daten zurücksetzen'); return; }
+
+  const leadsCount    = (state.hkmLeads     || []).length;
+  const activitiesCount = (state.hkmActivities || []).length;
+  const profileCount  = Object.keys(state.hkmProfiles || {}).length;
+
+  let msg = mode === 'full'
+    ? `ACHTUNG: ${leadsCount} Leads, ${activitiesCount} Aktivitäten und die Knochen/Rang von ${profileCount} Profilen werden unwiderruflich gelöscht.\n\nWirklich alles zurücksetzen?`
+    : `${leadsCount} Leads und ${activitiesCount} Aktivitäten werden unwiderruflich gelöscht.\n\nWirklich löschen?`;
+
+  if (!confirm(msg)) return;
+  // Second confirmation for full reset
+  if (mode === 'full' && !confirm('Letzter Check: Knochen & Rang wirklich auf 0 zurücksetzen?')) return;
+
+  try {
+    showToast('⏳ Reset läuft…');
+    await window.hkmFirebaseReset(mode);
+    showToast(`✅ Reset abgeschlossen – ${mode === 'full' ? 'alles' : 'Leads & Aktivitäten'} gelöscht`);
+    // State will auto-update via Firebase listeners; also re-render current tab
+    setTimeout(() => setHkmTab(state.hkmTab || 'leaderboard'), 800);
+  } catch (e) {
+    showToast('❌ Fehler: ' + e.message);
+  }
+};
+
 // ─── Event listener setup ─────────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', function() {
