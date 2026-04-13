@@ -4200,8 +4200,9 @@
           notesWithTime
         ];
       });
-      const csv = [headers, ...rows].map(r => r.map(v => `"${String(v || '').replaceAll('"', '""')}"`).join(',')).join('\n');
-      const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+      const csv = [headers, ...rows].map(r => r.map(v => `"${String(v || '').replaceAll('"', '""')}"`).join(';')).join('\r\n');
+      const _csvBytes1 = new TextEncoder().encode(csv);
+      const blob = new Blob([new Uint8Array([0xEF,0xBB,0xBF]), _csvBytes1], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
       link.setAttribute('href', URL.createObjectURL(blob));
       link.setAttribute('download', `contacts_${new Date().toISOString().split('T')[0]}.csv`);
@@ -4252,8 +4253,9 @@
         ];
       });
 
-      const csv = [headers, ...rows].map(r => r.map(v => `"${String(v || '').replaceAll('"', '""')}"`).join(',')).join('\n');
-      const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+      const csv = [headers, ...rows].map(r => r.map(v => `"${String(v || '').replaceAll('"', '""')}"`).join(';')).join('\r\n');
+      const _csvBytes2 = new TextEncoder().encode(csv);
+      const blob = new Blob([new Uint8Array([0xEF,0xBB,0xBF]), _csvBytes2], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
       link.setAttribute('href', URL.createObjectURL(blob));
       link.setAttribute('download', `linkedin_outreach_${new Date().toISOString().split('T')[0]}.csv`);
@@ -5607,8 +5609,9 @@
         ];
       });
       
-      const csv = [headers, ...rows].map(r => r.map(v => `"${String(v || '').replaceAll('"', '""')}"`).join(',')).join('\n');
-      const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+      const csv = [headers, ...rows].map(r => r.map(v => `"${String(v || '').replaceAll('"', '""')}"`).join(';')).join('\r\n');
+      const _csvBytes3 = new TextEncoder().encode(csv);
+      const blob = new Blob([new Uint8Array([0xEF,0xBB,0xBF]), _csvBytes3], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
       link.setAttribute('href', URL.createObjectURL(blob));
       link.setAttribute('download', `calls_${new Date().toISOString().split('T')[0]}.csv`);

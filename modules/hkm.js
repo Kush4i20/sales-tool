@@ -60,6 +60,7 @@ state.hkmRangLog   = [];
 state.hkmTab       = 'leaderboard';
 state.hkmLeadsFilter = { status: '', region: '', assignedTo: '', search: '' };
 state.hkmBulkSelected = new Set();
+state.hkmSessionQueue = new Set();   // persistent queue for Session tab
 state.hkmCurrentLeadId = null;
 
 // ─── Utility ─────────────────────────────────────────────────────────────────
@@ -140,7 +141,7 @@ function setHkmTab(tab) {
   const views = {
     leaderboard: 'hkmLeaderboardView',
     leads: 'hkmLeadsView',
-    matkon: 'hkmMatkonView',
+    session: 'hkmSessionView',
     analytics: 'hkmAnalyticsView',
     challenges: 'hkmChallengesView',
     calendar: 'hkmCalendarView',
@@ -150,15 +151,9 @@ function setHkmTab(tab) {
     const el = document.getElementById(id);
     if (el) el.style.display = key === tab ? 'block' : 'none';
   });
-  // Always hide session panel when switching tabs (unless staying on leads)
-  if (tab !== 'leads') {
-    const sessionPanel = document.getElementById('hkmSessionPanel');
-    if (sessionPanel) sessionPanel.style.display = 'none';
-    if (HkmSession.active) HkmSession.end();
-  }
   if (tab === 'leaderboard')  renderHkmLeaderboard();
   if (tab === 'leads')        renderHkmLeads();
-  if (tab === 'matkon')       { renderMatkonProjects?.(); renderMatkonMemberFilter?.(); }
+  if (tab === 'session')      HkmSession.render();
   if (tab === 'analytics')    renderHkmAnalytics();
   if (tab === 'challenges')   renderHkmChallenges();
   if (tab === 'calendar')     renderHkmCalendar();
@@ -536,20 +531,31 @@ function openHkmLeadDetail(leadId) {
 function renderHkmLeadActivities(leadId) {
   const el = document.getElementById('hkmDetailActivities');
   if (!el) return;
+  const lead = (state.hkmLeads || []).find(l => l.id === leadId);
   const acts = hkmGetLeadActivities(leadId)
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
+  const icons  = { call: '📞', demo: '📅', deal: '💰', produkt: '✅', visumat: '🎯', absage: '❌' };
+  const labels = { call: 'Call', demo: 'Demo', deal: 'Deal (alt)', produkt: 'Produkt verkauft', visumat: 'VisuMat Paket verkauft', absage: 'Absage' };
+
+  // Lead-level Notizen shown as sticky note at top
+  const notizenHtml = (lead?.notizen)
+    ? `<div style="background:rgba(245,158,11,.12);border-left:3px solid var(--accent);border-radius:6px;padding:8px 12px;margin-bottom:10px;font-size:12px;">
+        <div style="font-weight:700;margin-bottom:2px;">📝 Notizen</div>
+        <div style="white-space:pre-wrap;word-break:break-word;">${escapeHtml(lead.notizen)}</div>
+       </div>`
+    : '';
+
   if (!acts.length) {
-    el.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;padding:12px;">Noch keine Aktivitäten</div>';
+    el.innerHTML = notizenHtml + '<div style="color:var(--muted);font-size:12px;text-align:center;padding:12px;">Noch keine Aktivitäten</div>';
     return;
   }
 
-  const icons = { call: '📞', demo: '📅', deal: '💰', produkt: '✅', visumat: '🎯', absage: '❌' };
-  const labels = { call: 'Call', demo: 'Demo', deal: 'Deal (alt)', produkt: 'Produkt verkauft', visumat: 'VisuMat Paket verkauft', absage: 'Absage' };
-
-  el.innerHTML = acts.map(a => {
+  const actHtml = acts.map(a => {
     const profile = state.hkmProfiles[a.user_id];
     let detail = '';
+    if (a.type === 'call' && a.result) detail = a.result.replace(/_/g, ' ');
+    if (a.type === 'demo' && a.demo_date) detail = `📅 ${a.demo_date.replace('T', ' ')}`;
     if (a.type === 'deal' || a.type === 'produkt' || a.type === 'visumat') detail = `${a.paket_name || ''} · CHF ${hkmFmt(a.paket_preis)} · ${a.zusage_kategorie || ''}`;
     if (a.type === 'absage') detail = a.absage_kategorie || '';
     if (a.notizen) detail += (detail ? ' · ' : '') + a.notizen;
@@ -558,11 +564,13 @@ function renderHkmLeadActivities(leadId) {
       <div class="hkm-timeline-icon">${icons[a.type] || '📝'}</div>
       <div class="hkm-timeline-content">
         <div class="hkm-timeline-title">${labels[a.type] || a.type}${profile ? ` (${profile.name})` : ''}</div>
-        ${detail ? `<div class="hkm-timeline-detail">${detail}</div>` : ''}
+        ${detail ? `<div class="hkm-timeline-detail">${escapeHtml(detail)}</div>` : ''}
         <div class="hkm-timeline-time">${hkmDateStr(a.createdAt)}</div>
       </div>
     </div>`;
   }).join('');
+
+  el.innerHTML = notizenHtml + actHtml;
 }
 
 function closeHkmLeadDetail() {
@@ -683,6 +691,15 @@ function hkmToggleActivityFields(type) {
   document.getElementById('hkmFieldsDemo').style.display   = type === 'demo'                               ? 'block' : 'none';
   document.getElementById('hkmFieldsDeal').style.display   = (type === 'deal' || type === 'produkt' || type === 'visumat') ? 'block' : 'none';
   document.getElementById('hkmFieldsAbsage').style.display = type === 'absage'                             ? 'block' : 'none';
+}
+
+// Session-tab inline form field toggle (parallel to hkmToggleActivityFields)
+function hkmSessToggleFields(type) {
+  const show = (id, cond) => { const el = document.getElementById(id); if (el) el.style.display = cond ? 'block' : 'none'; };
+  show('hkmSessFieldsCall',  type === 'call');
+  show('hkmSessFieldsDemo',  type === 'demo');
+  show('hkmSessFieldsDeal',  type === 'produkt' || type === 'visumat');
+  show('hkmSessFieldsAbsage', type === 'absage');
 }
 
 async function saveHkmActivityFromModal() {
@@ -1445,88 +1462,176 @@ window.hkmExportCalendarIcs = function() {
 // ─── VisuMat Call-Session ─────────────────────────────────────────────────────
 
 const HkmSession = {
-  leads: [],
   idx: 0,
-  active: false,
 
-  start(leadIds) {
-    this.leads = leadIds.map(id => state.hkmLeads.find(l => l.id === id)).filter(Boolean);
-    if (!this.leads.length) { showToast('Keine Leads für Session ausgewählt'); return; }
+  // Returns ordered array of lead objects from the queue
+  queueLeads() {
+    return [...state.hkmSessionQueue]
+      .map(id => (state.hkmLeads || []).find(l => l.id === id))
+      .filter(Boolean);
+  },
+
+  currentId() {
+    return this.queueLeads()[this.idx]?.id || null;
+  },
+
+  // Add leads from bulk selection to the queue
+  addLeads(ids) {
+    ids.forEach(id => state.hkmSessionQueue.add(id));
+    hkmUpdateSessionBadge();
+    this.render();
+  },
+
+  clearQueue() {
+    state.hkmSessionQueue.clear();
     this.idx = 0;
-    this.active = true;
-    // Show session panel, hide leads table
-    const panel = document.getElementById('hkmSessionPanel');
-    const leadsView = document.getElementById('hkmLeadsView');
-    if (panel) panel.style.display = 'block';
-    if (leadsView) leadsView.style.display = 'none';
-    // Make sure hkm section is active
+    hkmUpdateSessionBadge();
+    this.render();
+  },
+
+  render() {
+    const leads = this.queueLeads();
+    const empty = document.getElementById('hkmSessionEmpty');
+    const main  = document.getElementById('hkmSessionMain');
+    if (!empty || !main) return;
+
+    if (!leads.length) {
+      empty.style.display = '';
+      main.style.display  = 'none';
+      return;
+    }
+    empty.style.display = 'none';
+    main.style.display  = '';
+
+    // Clamp idx
+    if (this.idx >= leads.length) this.idx = leads.length - 1;
+    if (this.idx < 0) this.idx = 0;
+
     this.loadCurrent();
   },
 
   loadCurrent() {
-    const lead = this.leads[this.idx];
-    if (!lead) { this.end(); return; }
-    const progress = `Lead ${this.idx + 1} / ${this.leads.length}`;
-    document.getElementById('hkmSessionProgress').textContent = progress;
-    document.getElementById('hkmSessionLeadName').textContent = lead.projektname || lead.firma || '(Unbekannt)';
-    document.getElementById('hkmSessionFirma').textContent = lead.firma ? (lead.projektname ? `Firma: ${lead.firma}` : '') : '';
-    const details = [
-      lead.kontaktperson && `👤 ${lead.kontaktperson}`,
-      lead.telefon       && `📞 ${lead.telefon}`,
-      lead.email         && `📧 ${lead.email}`,
-      lead.region        && `📍 ${HKM_REGIONS.find(r=>r.value===lead.region)?.label||lead.region}`
-    ].filter(Boolean);
-    document.getElementById('hkmSessionContact').innerHTML = details.map(d =>
-      `<span style="background:rgba(255,255,255,.08);padding:3px 10px;border-radius:6px;font-size:12px;">${d}</span>`
-    ).join('');
-    document.getElementById('hkmSessionNotes').value = '';
-    // Progress bar
-    const pct = Math.round(((this.idx) / this.leads.length) * 100);
-    const fill = document.getElementById('hkmSessionProgressFill');
+    const leads = this.queueLeads();
+    const lead  = leads[this.idx];
+    if (!lead) return;
+
+    // Progress
+    const progText = `Lead ${this.idx + 1} / ${leads.length}`;
+    const progEl = document.getElementById('hkmSessProgress');
+    if (progEl) progEl.textContent = progText;
+    const pct = leads.length > 1 ? Math.round((this.idx / (leads.length - 1)) * 100) : 100;
+    const fill = document.getElementById('hkmSessProgressFill');
     if (fill) fill.style.width = pct + '%';
-    // Prev button
-    const prevBtn = document.getElementById('hkmSessionPrevBtn');
+    const prevBtn = document.getElementById('hkmSessPrevBtn');
     if (prevBtn) prevBtn.disabled = this.idx === 0;
-  },
 
-  async saveAndNext(result) {
-    const lead = this.leads[this.idx];
-    if (!lead) { this.next(); return; }
-    const notes = document.getElementById('hkmSessionNotes')?.value.trim() || null;
-    const activity = {
-      lead_id:   lead.id,
-      user_id:   hkmOwnUid(),
-      type:      'call',
-      result,
-      notizen:   notes,
-      createdAt: new Date().toISOString()
-    };
-    // Update lead status based on result
-    const statusMap = { demo_gebucht: 'demo_gebucht', interesse: 'kontaktiert', kein_interesse: 'abgesagt', nicht_erreicht: 'kontaktiert', callback: 'kontaktiert' };
-    const newStatus = statusMap[result];
-    try {
-      await window.saveHkmActivity(activity);
-      if (newStatus && lead.status !== 'abgeschlossen') {
-        await window.saveHkmLead({ ...lead, status: newStatus });
+    // Title
+    const titleEl = document.getElementById('hkmSessLeadTitle');
+    if (titleEl) titleEl.textContent = lead.projektname || lead.firma || '(Unbekannt)';
+
+    // Editable fields
+    const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
+    set('hkmSessFirma',   lead.firma);
+    set('hkmSessKontakt', lead.kontaktperson);
+    set('hkmSessTel',     lead.telefon);
+    set('hkmSessEmail',   lead.email);
+
+    // Read-only info
+    const regionEl = document.getElementById('hkmSessRegion');
+    if (regionEl) regionEl.textContent = lead.region ? `📍 ${HKM_REGIONS.find(r=>r.value===lead.region)?.label||lead.region}` : '';
+
+    const urlEl = document.getElementById('hkmSessUrl');
+    if (urlEl) {
+      const url = lead.url || '';
+      if (url) {
+        const display = url.length > 40 ? url.slice(0, 37) + '…' : url;
+        urlEl.innerHTML = `<a href="${escapeHtml(url)}" target="_blank" title="${escapeHtml(url)}" style="color:var(--accent);">${escapeHtml(display)}</a>`;
+      } else {
+        urlEl.textContent = '';
       }
-      showToast(result === 'demo_gebucht' ? '📅 Demo gebucht!' : result === 'kein_interesse' ? '❌ Abgesagt' : '✅ Gespeichert');
-    } catch(e) {
-      showToast('❌ Fehler: ' + e.message);
     }
-    this.next();
+
+    const STATUS_LABELS = { neu:'Neu', kontaktiert:'Kontaktiert', demo_gebucht:'Demo gebucht', abgeschlossen:'Gewonnen', abgesagt:'Abgesagt' };
+    const statusEl = document.getElementById('hkmSessStatusBadge');
+    if (statusEl) {
+      const cls = { neu:'badge-info', kontaktiert:'badge-warning', demo_gebucht:'badge-warning', abgeschlossen:'badge-success', abgesagt:'badge-danger' }[lead.status] || 'badge-info';
+      statusEl.innerHTML = `<span class="badge ${cls}">${STATUS_LABELS[lead.status]||lead.status||'Neu'}</span>`;
+    }
+
+    // Reset activity form
+    const callRadio = document.getElementById('hkmSessActCall');
+    if (callRadio) { callRadio.checked = true; hkmSessToggleFields('call'); }
+    const notesEl = document.getElementById('hkmSessNotizen');
+    if (notesEl) notesEl.value = '';
+
+    // Queue list
+    this.renderQueue(leads);
+
+    // History
+    this.renderHistory(lead.id);
   },
 
-  skipNext() {
-    this.next();
+  renderQueue(leads) {
+    const el = document.getElementById('hkmSessQueueList');
+    if (!el) return;
+    el.innerHTML = leads.map((l, i) => {
+      const isActive = i === this.idx;
+      const name = l.projektname || l.firma || '(Unbekannt)';
+      const firm = l.projektname && l.firma ? l.firma : '';
+      return `<div onclick="HkmSession.jumpTo(${i})" style="padding:8px 10px;border-radius:6px;cursor:pointer;margin-bottom:4px;
+        background:${isActive ? 'rgba(245,158,11,.2)' : 'rgba(255,255,255,.04)'};
+        border-left:3px solid ${isActive ? 'var(--accent)' : 'transparent'};">
+        <div style="font-size:12px;font-weight:${isActive?'700':'400'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(name)}</div>
+        ${firm ? `<div style="font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(firm)}</div>` : ''}
+      </div>`;
+    }).join('');
   },
 
-  next() {
-    this.idx++;
-    if (this.idx >= this.leads.length) {
-      showToast(`✅ Session abgeschlossen! ${this.leads.length} Lead${this.leads.length!==1?'s':''} bearbeitet.`);
-      this.end();
-    } else {
+  renderHistory(leadId) {
+    const el = document.getElementById('hkmSessHistory');
+    if (!el) return;
+    const acts = hkmGetLeadActivities(leadId).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    const icons  = { call:'📞', demo:'📅', deal:'💰', produkt:'✅', visumat:'🎯', absage:'❌' };
+    const labels = { call:'Call', demo:'Demo', deal:'Deal (alt)', produkt:'Produkt verkauft', visumat:'VisuMat Paket verkauft', absage:'Absage' };
+
+    if (!acts.length) {
+      el.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;padding:12px;">Noch keine Aktivitäten</div>';
+      return;
+    }
+    el.innerHTML = acts.map(a => {
+      const who = a.user_id ? (state.hkmProfiles[a.user_id]?.name || a.user_id) : '';
+      let detail = '';
+      if (a.type === 'call' && a.result) detail = a.result.replace(/_/g, ' ');
+      if (a.type === 'demo' && a.demo_date) detail = `📅 ${a.demo_date.replace('T', ' ')}`;
+      if (a.type === 'deal' || a.type === 'produkt' || a.type === 'visumat') detail = `${a.paket_name || ''} · CHF ${hkmFmt(a.paket_preis)}`;
+      if (a.type === 'absage') detail = a.absage_kategorie || '';
+      if (a.notizen) detail += (detail ? ' · ' : '') + a.notizen;
+      return `<div style="display:flex;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:12px;">
+        <span style="font-size:16px;line-height:1.2;">${icons[a.type]||'📝'}</span>
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:600;">${labels[a.type]||a.type}${who ? ` <span style="font-weight:400;color:var(--muted);">· ${escapeHtml(who)}</span>` : ''}</div>
+          ${detail ? `<div style="color:var(--muted);margin-top:2px;white-space:pre-wrap;word-break:break-word;">${escapeHtml(detail)}</div>` : ''}
+        </div>
+        <span style="color:var(--muted);white-space:nowrap;font-size:11px;">${hkmTimeAgo(a.createdAt)}</span>
+      </div>`;
+    }).join('');
+  },
+
+  jumpTo(i) {
+    const leads = this.queueLeads();
+    if (i >= 0 && i < leads.length) {
+      this.idx = i;
       this.loadCurrent();
+    }
+  },
+
+  skip() {
+    const leads = this.queueLeads();
+    if (this.idx < leads.length - 1) {
+      this.idx++;
+      this.loadCurrent();
+    } else {
+      showToast('✅ Letzter Lead in der Warteschlange');
     }
   },
 
@@ -1537,25 +1642,128 @@ const HkmSession = {
     }
   },
 
-  end() {
-    this.active = false;
-    this.leads = [];
-    this.idx = 0;
-    const panel = document.getElementById('hkmSessionPanel');
-    const leadsView = document.getElementById('hkmLeadsView');
-    if (panel) panel.style.display = 'none';
-    if (leadsView) leadsView.style.display = 'block';
-    state.hkmBulkSelected.clear();
-    renderHkmLeads();
+  async saveLeadEdits() {
+    const id = this.currentId();
+    if (!id) return;
+    const lead = (state.hkmLeads || []).find(l => l.id === id);
+    if (!lead) return;
+    const updated = {
+      ...lead,
+      firma:         document.getElementById('hkmSessFirma')?.value.trim() || lead.firma,
+      kontaktperson: document.getElementById('hkmSessKontakt')?.value.trim() || lead.kontaktperson,
+      telefon:       document.getElementById('hkmSessTel')?.value.trim() || lead.telefon,
+      email:         document.getElementById('hkmSessEmail')?.value.trim() || lead.email,
+    };
+    try {
+      await window.saveHkmLead(updated);
+      showToast('💾 Daten gespeichert');
+      this.loadCurrent();
+    } catch(e) {
+      showToast('❌ ' + e.message);
+    }
+  },
+
+  async saveActivity() {
+    const id = this.currentId();
+    if (!id) return;
+    const lead = (state.hkmLeads || []).find(l => l.id === id);
+    if (!lead) return;
+
+    const typeRadio = document.querySelector('[name="hkmSessActType"]:checked');
+    const type = typeRadio?.value || 'call';
+
+    const activity = {
+      lead_id:   id,
+      user_id:   hkmOwnUid(),
+      type,
+      createdAt: new Date().toISOString()
+    };
+
+    // Type-specific fields
+    if (type === 'call') {
+      const res = document.getElementById('hkmSessCallResult')?.value || '';
+      if (res) activity.result = res;
+      // Auto-update status based on result
+      const statusMap = { demo_gebucht:'demo_gebucht', interesse:'kontaktiert', kein_interesse:'abgesagt', nicht_erreicht:'kontaktiert', callback:'kontaktiert', ruckruf:'kontaktiert' };
+      const newStatus = statusMap[res];
+      if (newStatus && lead.status !== 'abgeschlossen') {
+        try { await window.saveHkmLead({ ...lead, status: newStatus }); } catch(e) {}
+      }
+    } else if (type === 'demo') {
+      const dd = document.getElementById('hkmSessDemoDate')?.value || '';
+      if (dd) activity.demo_date = dd;
+    } else if (type === 'produkt' || type === 'visumat') {
+      activity.paket_name      = document.getElementById('hkmSessPaketName')?.value || '';
+      activity.paket_preis     = document.getElementById('hkmSessPaketPreis')?.value || '';
+      activity.zusage_kategorie = document.getElementById('hkmSessZusageKat')?.value || '';
+      activity.zusage_text     = document.getElementById('hkmSessZusageTxt')?.value || '';
+    } else if (type === 'absage') {
+      activity.absage_kategorie = document.getElementById('hkmSessAbsageKat')?.value || '';
+      activity.absage_text      = document.getElementById('hkmSessAbsageTxt')?.value || '';
+      if (lead.status !== 'abgeschlossen') {
+        try { await window.saveHkmLead({ ...lead, status: 'abgesagt' }); } catch(e) {}
+      }
+    }
+
+    const notizen = document.getElementById('hkmSessNotizen')?.value.trim() || '';
+    if (notizen) activity.notizen = notizen;
+
+    try {
+      await window.saveHkmActivity(activity);
+      const isDealType = type === 'produkt' || type === 'visumat';
+      showToast(isDealType ? '🦴 Verkauf gespeichert!' : type === 'absage' ? '❌ Abgesagt' : '✅ Gespeichert');
+      // Auto-download ICS for demo
+      if (type === 'demo' && activity.demo_date) {
+        hkmDownloadDemoIcs(activity, lead);
+      }
+    } catch(e) {
+      showToast('❌ ' + e.message);
+      return;
+    }
+
+    // Advance to next
+    const leads = this.queueLeads();
+    if (this.idx < leads.length - 1) {
+      this.idx++;
+      this.loadCurrent();
+    } else {
+      showToast('✅ Alle Leads bearbeitet!');
+      this.renderHistory(id);
+      this.renderQueue(leads);
+    }
   }
 };
 
 window.HkmSession = HkmSession;
 
-window.hkmStartBulkSession = function() {
+// Update the badge on the Session tab button showing queue count
+function hkmUpdateSessionBadge() {
+  const count = state.hkmSessionQueue.size;
+  const btn = document.querySelector('[data-hkm-tab="session"]');
+  if (!btn) return;
+  const existing = btn.querySelector('.sess-badge');
+  if (existing) existing.remove();
+  if (count > 0) {
+    const badge = document.createElement('span');
+    badge.className = 'sess-badge';
+    badge.style.cssText = 'background:var(--accent);color:#000;font-size:10px;font-weight:700;border-radius:10px;padding:1px 6px;margin-left:4px;';
+    badge.textContent = count;
+    btn.appendChild(badge);
+  }
+}
+
+// Called from bulk bar "Zur Session hinzufügen"
+window.hkmAddToSession = function() {
   const ids = [...state.hkmBulkSelected];
   if (!ids.length) { showToast('Bitte zuerst Leads auswählen'); return; }
-  HkmSession.start(ids);
+  HkmSession.addLeads(ids);
+  state.hkmBulkSelected.clear();
+  hkmUpdateBulkBar();
+  showToast(`📌 ${ids.length} Lead${ids.length !== 1 ? 's' : ''} zur Session hinzugefügt`);
+};
+
+window.hkmClearSession = function() {
+  HkmSession.clearQueue();
 };
 
 // ─── Import Log ──────────────────────────────────────────────────────────────
@@ -1648,7 +1856,7 @@ window.hkmExportLeads = function(format) {
   // CSV
   const headers = [
     'ID','Projektname','Firma','Kontaktperson','Email','Telefon',
-    'Region','Projekttyp','URL','Status','Zugewiesen (Name)','Vollständig',
+    'Region','Projekttyp','URL','Notizen','Status','Zugewiesen (Name)','Vollständig',
     'Erstellt','Letzte Aktivität','Anzahl Aktivitäten','Aktivitäten (Detail)','Import-Batch'
   ];
   const rows = leads.map(l => {
@@ -1667,7 +1875,7 @@ window.hkmExportLeads = function(format) {
     return [
       l.id, l.projektname, l.firma, l.kontaktperson, l.email, l.telefon,
       HKM_REGIONS.find(r=>r.value===l.region)?.label || l.region || '',
-      l.projekttyp, l.url,
+      l.projekttyp, l.url, l.notizen || '',
       statusLabels[l.status] || l.status || '',
       profile?.name || '',
       isComplete ? 'Ja' : 'Nein',
@@ -1678,8 +1886,11 @@ window.hkmExportLeads = function(format) {
       l.importBatchId || ''
     ];
   });
-  const csv = [headers, ...rows].map(r => r.map(v => `"${String(v||'').replaceAll('"','""')}"`).join(',')).join('\n');
-  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const csv = [headers, ...rows].map(r => r.map(v => `"${String(v||'').replaceAll('"','""')}"`).join(';')).join('\r\n');
+  const enc = new TextEncoder();
+  const csvBytes = enc.encode(csv);
+  const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
+  const blob = new Blob([bom, csvBytes], { type: 'text/csv;charset=utf-8;' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = `visumat_leads_${dateStr}.csv`;
@@ -1957,6 +2168,11 @@ document.addEventListener('DOMContentLoaded', function() {
       if (hidden) hidden.value = type;
       hkmToggleActivityFields(type);
     });
+  });
+
+  // Session tab inline activity radios
+  document.querySelectorAll('[name="hkmSessActType"]').forEach(radio => {
+    radio.addEventListener('change', e => hkmSessToggleFields(e.target.value));
   });
 
   // Leads search/filter

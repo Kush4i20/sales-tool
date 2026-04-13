@@ -1348,7 +1348,7 @@
         <div class="filter-tabs" style="margin-bottom:16px;">
           <button class="filter-tab active" data-hkm-tab="leaderboard">🏆 Leaderboard</button>
           <button class="filter-tab" data-hkm-tab="leads">🎯 Leads</button>
-          <button class="filter-tab" data-hkm-tab="matkon">🐾 Projekte</button>
+          <button class="filter-tab" data-hkm-tab="session">📞 Session</button>
           <button class="filter-tab" data-hkm-tab="analytics">📊 Analytics</button>
           <button class="filter-tab" data-hkm-tab="challenges">⚔️ Challenges</button>
           <button class="filter-tab" data-hkm-tab="calendar">📅 Kalender</button>
@@ -1442,49 +1442,189 @@
           <!-- Bulk action bar -->
           <div id="hkmBulkBar" style="display:none;position:sticky;bottom:16px;background:var(--card);border:1.5px solid var(--accent);border-radius:10px;padding:10px 16px;display:flex;align-items:center;gap:12px;box-shadow:0 4px 16px rgba(0,0,0,.15);">
             <span id="hkmBulkCount" style="font-weight:700;font-size:13px;">0 ausgewählt</span>
-            <button class="btn primary" onclick="hkmStartBulkSession()" style="font-size:12px;">▶ Session starten</button>
+            <button class="btn primary" onclick="hkmAddToSession()" style="font-size:12px;">📌 Zur Session hinzufügen</button>
             <button class="btn" id="hkmBulkDeleteBtn" onclick="hkmBulkDelete()" style="font-size:12px;border-color:#ef4444;color:#ef4444;display:none;">🗑️ Löschen</button>
             <button class="btn" onclick="hkmClearBulkSelection()" style="font-size:12px;margin-left:auto;">✕ Auswahl aufheben</button>
           </div>
         </div>
 
-        <!-- ── HKM SESSION PANEL ─────────────────────────────────────── -->
-        <div id="hkmSessionPanel" style="display:none;">
-          <div class="card" style="margin-bottom:16px;">
-            <div class="card-content">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-                <div>
-                  <div style="font-size:13px;color:var(--muted);">VisuMat Call-Session</div>
-                  <div id="hkmSessionProgress" style="font-size:18px;font-weight:700;">Lead 1 / 5</div>
-                </div>
-                <button class="btn" onclick="HkmSession.end()" style="border-color:#ef4444;color:#ef4444;">✕ Session beenden</button>
-              </div>
-              <div class="card" style="margin-bottom:16px;background:rgba(245,158,11,.05);">
-                <div class="card-content">
-                  <div id="hkmSessionLeadName" style="font-size:18px;font-weight:700;margin-bottom:4px;"></div>
-                  <div id="hkmSessionFirma" style="font-size:14px;color:var(--muted);margin-bottom:8px;"></div>
-                  <div id="hkmSessionContact" style="font-size:13px;display:flex;flex-wrap:wrap;gap:12px;"></div>
-                </div>
-              </div>
-              <label class="label">Notizen</label>
-              <textarea id="hkmSessionNotes" class="input-field" rows="3" placeholder="Kurze Notiz zum Gespräch..." style="margin-bottom:16px;"></textarea>
-              <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;">
-                <button class="btn primary" onclick="HkmSession.saveAndNext('demo_gebucht')" style="background:#3b82f6;border-color:#3b82f6;">📅 Demo gebucht</button>
-                <button class="btn" onclick="HkmSession.saveAndNext('interesse')" style="border-color:#10b981;color:#10b981;">✅ Interesse</button>
-                <button class="btn" onclick="HkmSession.saveAndNext('nicht_erreicht')" style="border-color:#6b7280;color:#6b7280;">📵 Nicht erreicht</button>
-                <button class="btn" onclick="HkmSession.saveAndNext('callback')" style="border-color:#f59e0b;color:#f59e0b;">🔄 Rückruf</button>
-                <button class="btn" onclick="HkmSession.saveAndNext('kein_interesse')" style="border-color:#ef4444;color:#ef4444;">❌ Kein Interesse</button>
-                <button class="btn" onclick="HkmSession.skipNext()" style="margin-left:auto;">⏭ Überspringen</button>
-              </div>
-              <div style="display:flex;gap:8px;align-items:center;">
-                <button class="btn" onclick="HkmSession.prev()" id="hkmSessionPrevBtn">◀ Zurück</button>
-                <div id="hkmSessionProgressBar" style="flex:1;height:6px;background:rgba(245,158,11,.2);border-radius:4px;overflow:hidden;">
-                  <div id="hkmSessionProgressFill" style="height:100%;background:var(--accent);border-radius:4px;transition:width .3s;width:0%;"></div>
+        <!-- ── SESSION TAB ────────────────────────────────────────────── -->
+        <div id="hkmSessionView" style="display:none;">
+
+          <!-- Empty state -->
+          <div id="hkmSessionEmpty" style="text-align:center;padding:60px 20px;">
+            <div style="font-size:48px;margin-bottom:16px;">📞</div>
+            <div style="font-size:17px;font-weight:700;margin-bottom:8px;">Keine Leads in der Session-Warteschlange</div>
+            <div style="font-size:13px;color:var(--muted);margin-bottom:20px;">Gehe zu <strong>Leads</strong>, wähle Leads mit den Checkboxen aus und klicke <strong>📌 Zur Session hinzufügen</strong>.</div>
+            <button class="btn primary" onclick="setHkmTab('leads')">🎯 Zu den Leads</button>
+          </div>
+
+          <!-- Session main -->
+          <div id="hkmSessionMain" style="display:none;">
+            <!-- Progress bar -->
+            <div class="card" style="margin-bottom:12px;">
+              <div class="card-content" style="padding:12px 16px;">
+                <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                  <button class="btn" onclick="HkmSession.prev()" id="hkmSessPrevBtn" style="padding:4px 12px;">◀ Zurück</button>
+                  <span id="hkmSessProgress" style="font-weight:700;font-size:14px;min-width:90px;"></span>
+                  <div style="flex:1;height:6px;background:rgba(245,158,11,.2);border-radius:4px;overflow:hidden;min-width:80px;">
+                    <div id="hkmSessProgressFill" style="height:100%;background:var(--accent);border-radius:4px;transition:width .3s;width:0%;"></div>
+                  </div>
+                  <button class="btn" onclick="HkmSession.skip()" style="padding:4px 12px;">⏭ Überspringen</button>
+                  <button class="btn" onclick="hkmClearSession()" style="padding:4px 12px;border-color:#ef4444;color:#ef4444;margin-left:8px;" title="Session leeren">✕ Session leeren</button>
                 </div>
               </div>
             </div>
-          </div>
-        </div>
+
+            <div style="display:grid;grid-template-columns:220px 1fr;gap:16px;align-items:start;">
+
+              <!-- Queue list -->
+              <div class="card" style="position:sticky;top:16px;">
+                <div class="card-head"><h3 class="card-title" style="font-size:13px;">Warteschlange</h3></div>
+                <div id="hkmSessQueueList" class="card-content" style="padding:8px;max-height:70vh;overflow-y:auto;"></div>
+              </div>
+
+              <!-- Current lead detail -->
+              <div>
+
+                <!-- Lead info (editable) -->
+                <div class="card" style="margin-bottom:12px;">
+                  <div class="card-head" style="padding-bottom:0;">
+                    <h3 class="card-title" id="hkmSessLeadTitle" style="font-size:16px;"></h3>
+                    <button class="btn" style="padding:3px 10px;font-size:12px;" onclick="openHkmLeadModal(HkmSession.currentId())">✏️ Bearbeiten</button>
+                  </div>
+                  <div class="card-content">
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:10px;">
+                      <div>
+                        <label class="label" style="font-size:10px;">Firma</label>
+                        <input type="text" id="hkmSessFirma" class="input-field" style="margin:0;font-size:13px;" placeholder="Firma">
+                      </div>
+                      <div>
+                        <label class="label" style="font-size:10px;">Kontaktperson</label>
+                        <input type="text" id="hkmSessKontakt" class="input-field" style="margin:0;font-size:13px;" placeholder="Name">
+                      </div>
+                      <div>
+                        <label class="label" style="font-size:10px;">Telefon</label>
+                        <input type="tel" id="hkmSessTel" class="input-field" style="margin:0;font-size:13px;" placeholder="+41...">
+                      </div>
+                      <div>
+                        <label class="label" style="font-size:10px;">Email</label>
+                        <input type="email" id="hkmSessEmail" class="input-field" style="margin:0;font-size:13px;" placeholder="email@...">
+                      </div>
+                    </div>
+                    <div style="display:flex;gap:16px;font-size:12px;color:var(--muted);align-items:center;flex-wrap:wrap;">
+                      <span id="hkmSessRegion"></span>
+                      <span id="hkmSessUrl"></span>
+                      <span id="hkmSessStatusBadge"></span>
+                      <button class="btn" style="padding:2px 10px;font-size:11px;margin-left:auto;" onclick="HkmSession.saveLeadEdits()">💾 Daten speichern</button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Inline activity form -->
+                <div class="card" style="margin-bottom:12px;">
+                  <div class="card-head"><h3 class="card-title" style="font-size:13px;">Aktivität erfassen</h3></div>
+                  <div class="card-content">
+                    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:16px;">
+                      <label class="hkm-type-btn"><input type="radio" name="hkmSessActType" value="call" id="hkmSessActCall" checked> 📞 Call</label>
+                      <label class="hkm-type-btn"><input type="radio" name="hkmSessActType" value="demo" id="hkmSessActDemo"> 📅 Demo</label>
+                      <label class="hkm-type-btn"><input type="radio" name="hkmSessActType" value="produkt" id="hkmSessActProdukt"> ✅ Produkt</label>
+                      <label class="hkm-type-btn"><input type="radio" name="hkmSessActType" value="visumat" id="hkmSessActVisumat"> 🎯 VisuMat</label>
+                      <label class="hkm-type-btn"><input type="radio" name="hkmSessActType" value="absage" id="hkmSessActAbsage"> ❌ Absage</label>
+                    </div>
+
+                    <!-- Call fields -->
+                    <div id="hkmSessFieldsCall">
+                      <label class="label" style="font-size:11px;">Ergebnis</label>
+                      <select id="hkmSessCallResult" class="input-field">
+                        <option value="">Kein Ergebnis</option>
+                        <option value="nicht_erreicht">Nicht erreicht</option>
+                        <option value="interesse">Interesse</option>
+                        <option value="kein_interesse">Kein Interesse</option>
+                        <option value="callback">Callback vereinbart</option>
+                        <option value="demo_gebucht">Demo gebucht</option>
+                      </select>
+                    </div>
+
+                    <!-- Demo fields -->
+                    <div id="hkmSessFieldsDemo" style="display:none;">
+                      <label class="label" style="font-size:11px;">Demo-Datum &amp; Uhrzeit</label>
+                      <input type="datetime-local" id="hkmSessDemoDate" class="input-field">
+                      <div style="font-size:11px;color:var(--muted);margin-top:4px;">Nach dem Speichern wird automatisch eine .ics Datei heruntergeladen.</div>
+                    </div>
+
+                    <!-- Produkt / VisuMat fields -->
+                    <div id="hkmSessFieldsDeal" style="display:none;">
+                      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+                        <div>
+                          <label class="label" style="font-size:11px;">Paket *</label>
+                          <select id="hkmSessPaketName" class="input-field">
+                            <option value="">Paket wählen...</option>
+                            <option value="Visualisierungspaket">Visualisierungspaket</option>
+                            <option value="Full-Service">Full-Service</option>
+                            <option value="Grundriss-Paket">Grundriss-Paket</option>
+                            <option value="Navigator">Navigator</option>
+                            <option value="Visumat MatKon">Visumat MatKon</option>
+                            <option value="Sonstiges">Sonstiges</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label class="label" style="font-size:11px;">Preis (CHF) *</label>
+                          <input type="number" id="hkmSessPaketPreis" class="input-field" placeholder="z.B. 4500" min="1">
+                        </div>
+                      </div>
+                      <label class="label" style="font-size:11px;">Zusage-Kategorie *</label>
+                      <select id="hkmSessZusageKat" class="input-field">
+                        <option value="">Kategorie wählen...</option>
+                        <option value="preis_leistung">Preis-Leistung</option>
+                        <option value="referenzen">Referenzprojekte</option>
+                        <option value="beziehung">Bestehende Beziehung</option>
+                        <option value="produkt_demo">Demo überzeugt</option>
+                        <option value="timing">Richtiges Timing</option>
+                        <option value="empfehlung">Empfehlung</option>
+                        <option value="sonstiges">Sonstiges</option>
+                      </select>
+                      <label class="label" style="margin-top:8px;font-size:11px;">Zusage-Erläuterung (optional)</label>
+                      <input type="text" id="hkmSessZusageTxt" class="input-field" placeholder="Was hat den Ausschlag gegeben?">
+                    </div>
+
+                    <!-- Absage fields -->
+                    <div id="hkmSessFieldsAbsage" style="display:none;">
+                      <label class="label" style="font-size:11px;">Absage-Kategorie</label>
+                      <select id="hkmSessAbsageKat" class="input-field">
+                        <option value="">Kategorie wählen...</option>
+                        <option value="zu_teuer">Zu teuer</option>
+                        <option value="kein_bedarf">Kein Bedarf</option>
+                        <option value="kein_interesse">Kein Interesse</option>
+                        <option value="schlechtes_timing">Schlechtes Timing</option>
+                        <option value="anderer_anbieter">Anderer Anbieter</option>
+                        <option value="interner_entscheid">Interner Entscheid</option>
+                        <option value="sonstiges">Sonstiges</option>
+                      </select>
+                      <label class="label" style="margin-top:8px;font-size:11px;">Absage-Grund (optional)</label>
+                      <input type="text" id="hkmSessAbsageTxt" class="input-field" placeholder="Details...">
+                    </div>
+
+                    <label class="label" style="margin-top:12px;font-size:11px;">Notizen</label>
+                    <textarea id="hkmSessNotizen" class="input-field" rows="2" placeholder="Kurze Notiz zum Gespräch..."></textarea>
+
+                    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;">
+                      <button class="btn" onclick="HkmSession.skip()">⏭ Überspringen</button>
+                      <button class="btn primary" onclick="HkmSession.saveActivity()">💾 Speichern &amp; Weiter</button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Activity / notes history -->
+                <div class="card">
+                  <div class="card-head"><h3 class="card-title" style="font-size:13px;">Verlauf &amp; Notizen</h3></div>
+                  <div id="hkmSessHistory" class="card-content" style="max-height:300px;overflow-y:auto;"></div>
+                </div>
+
+              </div><!-- /right column -->
+            </div><!-- /grid -->
+          </div><!-- /hkmSessionMain -->
+        </div><!-- /hkmSessionView -->
 
         <!-- ── ANALYTICS ──────────────────────────────────────────────── -->
         <div id="hkmAnalyticsView" style="display:none;">
