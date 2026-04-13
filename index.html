@@ -677,8 +677,40 @@
                       </div>
                     </div>
 
-                    <div style="display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap;">
-                      <button class="btn good" id="btnVrSaveAndNext" style="flex:1;">✅ Gesendet &amp; Nächster</button>
+                    <div class="card" style="margin-bottom:12px;">
+                      <div class="card-content">
+                        <div class="label" style="font-weight:700; margin-bottom:8px;">Status &amp; Nächste Phase</div>
+                        <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px;">
+                          <button class="btn good" id="btnVrSaveAndNext" style="flex:1;">📤 Mail gesendet</button>
+                          <button class="btn" onclick="VrSession.applyResult('vrfollowup1')" style="flex:1;">🔄 FU 1</button>
+                          <button class="btn" onclick="VrSession.applyResult('vrfollowup2')" style="flex:1;">🔄 FU 2</button>
+                          <button class="btn" onclick="VrSession.applyResult('vrfollowup3')" style="flex:1;">🔄 FU 3</button>
+                          <button class="btn" onclick="VrSession.applyResult('won')" style="flex:1;background:rgba(16,185,129,.15);color:#10b981;border-color:#10b981;">🏆 Gewonnen</button>
+                        </div>
+                        <details>
+                          <summary style="cursor:pointer;color:var(--danger);font-size:12px;padding:4px 0;user-select:none;">🚫 Kein Interesse / Absage</summary>
+                          <div style="margin-top:8px;">
+                            <label class="label">Grund</label>
+                            <select id="vrNoInterestReason" class="input-field">
+                              <option value="">Grund wählen…</option>
+                              <option value="Kein Budget">Kein Budget</option>
+                              <option value="Kein Bedarf">Kein Bedarf</option>
+                              <option value="Zu teuer">Zu teuer</option>
+                              <option value="Eigenentwicklung">Eigenentwicklung</option>
+                              <option value="Konkurrent gewählt">Konkurrent gewählt</option>
+                              <option value="Timing passt nicht">Timing passt nicht</option>
+                              <option value="Keine Rückmeldung">Keine Rückmeldung</option>
+                              <option value="Sonstiges">Sonstiges</option>
+                            </select>
+                            <label class="label" style="margin-top:6px;">Zusatz-Notiz</label>
+                            <textarea id="vrNoInterestNote" class="input-field" placeholder="Details zum Absagegrund…" style="min-height:50px;"></textarea>
+                            <div style="display:flex; gap:6px; margin-top:8px;">
+                              <button class="btn danger" onclick="VrSession.applyResult('nointerest')" style="flex:1;">❌ Kein Interesse</button>
+                              <button class="btn danger" onclick="VrSession.applyResult('nokeinbedarf')" style="flex:1;">🚫 Kein Bedarf</button>
+                            </div>
+                          </div>
+                        </details>
+                      </div>
                     </div>
                   </div><!-- /detail right -->
                 </div><!-- /2-column grid -->

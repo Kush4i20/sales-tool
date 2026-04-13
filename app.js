@@ -6546,6 +6546,83 @@
         }
       },
 
+      applyResult(status) {
+        const timestamp = new Date().toISOString();
+
+        const orig = this.linkedContactId
+          ? state.contacts.find(c => c.id === this.linkedContactId)
+          : null;
+
+        if (!orig) {
+          showToast('❌ Kein Kontakt verknüpft – bitte zuerst Kontakt auswählen');
+          return;
+        }
+
+        const dateField = {
+          vrmail_gesendet: 'vrMailSentDate',
+          vrfollowup1: 'vrFollowup1Date',
+          vrfollowup2: 'vrFollowup2Date',
+          vrfollowup3: 'vrFollowup3Date'
+        }[status];
+
+        orig.status = status;
+        orig.updatedAt = timestamp;
+        if (dateField) orig[dateField] = timestamp;
+
+        const statusLabels = {
+          vrmail_gesendet: '🎥 VR Mail gesendet',
+          vrfollowup1: '🔄 VR Follow-up 1',
+          vrfollowup2: '🔄 VR Follow-up 2',
+          vrfollowup3: '🔄 VR Follow-up 3',
+          won: '🏆 VR Gewonnen',
+          nointerest: '❌ VR Kein Interesse',
+          nokeinbedarf: '🚫 VR Kein Bedarf'
+        };
+
+        let noteText = statusLabels[status] || status;
+
+        if (status === 'nointerest' || status === 'nokeinbedarf') {
+          const reason = (document.getElementById('vrNoInterestReason')?.value || '').trim();
+          const note   = (document.getElementById('vrNoInterestNote')?.value   || '').trim();
+          if (reason) noteText += ` – ${reason}`;
+          if (note)   noteText += `: ${note}`;
+        } else {
+          const extraNote = (document.getElementById('vrSNotes')?.value || '').trim();
+          if (extraNote) noteText += `: ${extraNote}`;
+        }
+
+        addNotesHistory(orig, noteText, status);
+
+        state.vrQueue = (state.vrQueue || []).filter(id => id !== orig.id);
+        if (!this.adHocMode) this.contacts.splice(this.currentIdx, 1);
+
+        saveContacts();
+        renderKontakte();
+        renderVrTrackingTable();
+
+        const label = statusLabels[status] || status;
+
+        if (this.adHocMode) {
+          showToast(`✅ ${label} gespeichert`);
+          this.linkedContactId = null;
+          this.clearForm();
+          const badge = document.getElementById('vrLinkedContactBadge');
+          if (badge) badge.style.display = 'none';
+          const searchEl = document.getElementById('vrContactSearch');
+          if (searchEl) searchEl.value = '';
+        } else if (this.currentIdx < this.contacts.length) {
+          showToast(`✅ ${label}`);
+          this.loadCurrent();
+        } else {
+          showToast('🎉 VR Session abgeschlossen!');
+          document.getElementById('vrActiveSession').style.display = 'none';
+          this.contacts = [];
+          state.vrQueue = [];
+          this.adHocMode = false;
+          this.updateInfo();
+        }
+      },
+
       next() {
         if (this.adHocMode) {
           this.linkedContactId = null;
