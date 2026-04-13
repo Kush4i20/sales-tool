@@ -2271,6 +2271,37 @@
         </div>
       </div>
 
+      <!-- CRM Cross-Check Modal -->
+      <div id="hkmCrmCrossModal" class="modal" style="display:none;">
+        <div class="modal-content" style="max-width:780px;">
+          <div class="modal-header">
+            <h2>🔗 Bestehende Kontakte erkannt</h2>
+            <button class="modal-close" onclick="hkmCancelCrmCross()">✕</button>
+          </div>
+          <div class="modal-body">
+            <p id="hkmCrmCrossSummary"></p>
+            <p style="font-size:12px;color:var(--muted);margin-top:4px;">Markierte Leads werden mit dem CRM-Kontakt verknüpft – der Kontakt erhält automatisch eine Notiz und der Lead wird als <strong>🔗 CRM-Kontakt</strong> markiert.</p>
+            <div style="overflow-x:auto;margin-top:12px;">
+              <table>
+                <thead>
+                  <tr>
+                    <th style="width:32px;"></th>
+                    <th>Import-Lead</th>
+                    <th>Bestehender CRM-Kontakt</th>
+                    <th>Erkannt via</th>
+                  </tr>
+                </thead>
+                <tbody id="hkmCrmCrossBody"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn" onclick="hkmCancelCrmCross()">Abbrechen</button>
+            <button class="btn primary" onclick="hkmConfirmCrmCross()">Verknüpfen &amp; Importieren →</button>
+          </div>
+        </div>
+      </div>
+
       <!-- Challenge Modal -->
       <div id="hkmChallengeModal" class="modal" style="display:none;">
         <div class="modal-content" style="max-width:480px;">

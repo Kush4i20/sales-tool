@@ -382,7 +382,7 @@ function renderHkmLeads() {
         <input type="checkbox" class="hkm-lead-check" data-id="${l.id}" ${isChecked ? 'checked' : ''} onchange="hkmToggleBulkLead('${l.id}', this.checked)">
       </td>
       <td><strong>${l.projektname || '–'}</strong></td>
-      <td>${l.firma || '–'}<br><span style="font-size:11px;color:var(--muted);">${l.kontaktperson || ''}</span></td>
+      <td>${l.firma || '–'}<br><span style="font-size:11px;color:var(--muted);">${l.kontaktperson || ''}</span>${l.linked_contact_id ? '<br><span style="font-size:10px;font-weight:700;color:#3b82f6;background:rgba(59,130,246,.1);padding:1px 6px;border-radius:4px;">🔗 CRM-Kontakt</span>' : ''}</td>
       <td style="font-size:12px;">${regionLabel || '–'}</td>
       <td>
         <span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;background:${st.bg};color:${st.color}">${st.label}</span>
@@ -2190,7 +2190,7 @@ async function hkmRunDupeCheck(leads, resultEl, fileInput, parseSkipped) {
     _hkmPendingImport = { clean, dupes, resultEl, fileInput, parseSkipped };
     hkmShowDupesModal(clean.length, dupes);
   } else {
-    await hkmExecuteImport(clean, [], resultEl, fileInput, parseSkipped);
+    await hkmRunCrmCrossCheck(clean, resultEl, fileInput, parseSkipped);
   }
 }
 
@@ -2222,18 +2222,113 @@ window.hkmConfirmImport = async function() {
   const checkedDupes = dupes.filter((_, i) => document.getElementById(`hkmDupe_${i}`)?.checked).map(d => d.incoming);
   document.getElementById('hkmImportDupesModal').style.display = 'none';
   _hkmPendingImport = null;
-  await hkmExecuteImport(clean, checkedDupes, resultEl, fileInput, parseSkipped);
+  await hkmRunCrmCrossCheck([...clean, ...checkedDupes], resultEl, fileInput, parseSkipped);
+};
+
+// ── CRM contact cross-reference ───────────────────────────────────────────────
+
+async function hkmRunCrmCrossCheck(leads, resultEl, fileInput, parseSkipped) {
+  const contacts = state.contacts || [];
+  const byEmail = new Map();
+  const byFirma = new Map();
+  contacts.forEach(c => {
+    if (c.email) byEmail.set(c.email.toLowerCase().trim(), c);
+    if (c.firma) {
+      const key = c.firma.toLowerCase().trim();
+      if (!byFirma.has(key)) byFirma.set(key, c);
+    }
+  });
+
+  const matched = [];
+  leads.forEach(l => {
+    let contact = null, matchType = null;
+    if (l.email && byEmail.has(l.email.toLowerCase().trim())) {
+      contact = byEmail.get(l.email.toLowerCase().trim());
+      matchType = 'E-Mail';
+    } else if (l.firma && byFirma.has(l.firma.toLowerCase().trim())) {
+      contact = byFirma.get(l.firma.toLowerCase().trim());
+      matchType = 'Firma';
+    }
+    if (contact) matched.push({ lead: l, contact, matchType });
+  });
+
+  if (matched.length > 0) {
+    _hkmPendingImport = { leads, matched, resultEl, fileInput, parseSkipped };
+    hkmShowCrmCrossModal(matched, leads.length - matched.length);
+  } else {
+    await hkmExecuteImport(leads, [], resultEl, fileInput, parseSkipped);
+  }
+}
+
+function hkmShowCrmCrossModal(matched, unmatchedCount) {
+  const modal = document.getElementById('hkmCrmCrossModal');
+  if (!modal) { console.warn('hkmCrmCrossModal not found'); return; }
+  document.getElementById('hkmCrmCrossSummary').innerHTML =
+    `<strong>${matched.length}</strong> Import-Lead${matched.length !== 1 ? 's' : ''} ${matched.length !== 1 ? 'passen' : 'passt'} zu bestehenden CRM-Kontakten.`
+    + (unmatchedCount > 0 ? ` <span style="color:var(--muted)">(+ ${unmatchedCount} neue Leads ohne Match)</span>` : '');
+  document.getElementById('hkmCrmCrossBody').innerHTML = matched.map((m, i) => {
+    const c = m.contact;
+    const cName = [c.vorname, c.nachname].filter(Boolean).join(' ') || c.firma || '–';
+    const statusLabels = { new:'Neu', call:'Anruf', won:'Gewonnen', lost:'Verloren', vrmail_gesendet:'VR Mail', vrtoday:'VR Heute' };
+    const cStatus = statusLabels[c.status] || c.status || '–';
+    return `<tr>
+      <td onclick="event.stopPropagation()">
+        <input type="checkbox" id="hkmCrm_${i}" checked>
+      </td>
+      <td style="font-size:12px;">
+        <strong>${escapeHtml(m.lead.projektname || '–')}</strong><br>
+        <span style="color:var(--muted)">${escapeHtml(m.lead.firma || '')}${m.lead.kontaktperson ? ' · ' + escapeHtml(m.lead.kontaktperson) : ''}</span>
+      </td>
+      <td style="font-size:12px;">
+        <strong>${escapeHtml(cName)}</strong><br>
+        <span style="color:var(--muted)">${escapeHtml(c.firma || '')} · ${cStatus}</span>
+        ${c.email ? `<br><span style="color:var(--muted);font-size:11px;">${escapeHtml(c.email)}</span>` : ''}
+      </td>
+      <td style="font-size:11px;">
+        <span style="background:rgba(59,130,246,.12);color:#3b82f6;padding:2px 7px;border-radius:999px;font-weight:700;">${escapeHtml(m.matchType)}</span>
+      </td>
+    </tr>`;
+  }).join('');
+  modal.style.display = 'flex';
+}
+
+window.hkmCancelCrmCross = function() {
+  document.getElementById('hkmCrmCrossModal').style.display = 'none';
+  _hkmPendingImport = null;
+};
+
+window.hkmConfirmCrmCross = async function() {
+  if (!_hkmPendingImport) return;
+  const { leads, matched, resultEl, fileInput, parseSkipped } = _hkmPendingImport;
+  matched.forEach((m, i) => {
+    if (document.getElementById(`hkmCrm_${i}`)?.checked) {
+      m.lead.linked_contact_id = m.contact.id;
+    }
+  });
+  document.getElementById('hkmCrmCrossModal').style.display = 'none';
+  _hkmPendingImport = null;
+  await hkmExecuteImport(leads, [], resultEl, fileInput, parseSkipped);
 };
 
 async function hkmExecuteImport(clean, selectedDupes, resultEl, fileInput, parseSkipped) {
   const toImport = [...clean, ...selectedDupes];
-  let imported = 0, failed = 0;
+  let imported = 0, failed = 0, crmLinked = 0;
   for (const lead of toImport) {
-    try { await window.saveHkmLead(lead); imported++; } catch(e) { failed++; }
+    try { await window.saveHkmLead(lead); imported++;
+      if (lead.linked_contact_id) {
+        const contact = (state.contacts || []).find(c => c.id === lead.linked_contact_id);
+        if (contact) {
+          addNotesHistory(contact, `📦 VisuMat Lead importiert: ${lead.projektname || lead.firma || 'Unbekannt'}`, contact.status);
+          crmLinked++;
+        }
+      }
+    } catch(e) { failed++; }
   }
-  const skippedTotal = (toImport.length === 0 ? parseSkipped : parseSkipped + (clean.length - imported + failed));
+  if (crmLinked > 0) saveContacts();
   if (resultEl) {
-    resultEl.textContent = `✅ ${imported} Lead${imported!==1?'s':''} importiert${(parseSkipped+failed)>0 ? ` · ${parseSkipped+failed} übersprungen` : ''}.`;
+    resultEl.textContent = `✅ ${imported} Lead${imported!==1?'s':''} importiert`
+      + (crmLinked > 0 ? ` · ${crmLinked} mit CRM verknüpft` : '')
+      + ((parseSkipped + failed) > 0 ? ` · ${parseSkipped + failed} übersprungen` : '') + '.';
     resultEl.style.display = '';
     resultEl.style.background = 'rgba(16,185,129,.1)';
     resultEl.style.color = '#065f46';
@@ -2316,12 +2411,12 @@ document.addEventListener('DOMContentLoaded', function() {
   if (analyticsApply) analyticsApply.addEventListener('click', renderHkmAnalytics);
 
   // Click outside modal to close
-  ['hkmLeadModal', 'hkmLeadDetailModal', 'hkmActivityModal', 'hkmTransferModal', 'hkmImportDupesModal', 'hkmMultiProjectModal'].forEach(id => {
+  ['hkmLeadModal', 'hkmLeadDetailModal', 'hkmActivityModal', 'hkmTransferModal', 'hkmImportDupesModal', 'hkmMultiProjectModal', 'hkmCrmCrossModal'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.addEventListener('click', e => {
       if (e.target === el) {
         el.style.display = 'none';
-        if (id === 'hkmImportDupesModal' || id === 'hkmMultiProjectModal') _hkmPendingImport = null;
+        if (['hkmImportDupesModal', 'hkmMultiProjectModal', 'hkmCrmCrossModal'].includes(id)) _hkmPendingImport = null;
       }
     });
   });
