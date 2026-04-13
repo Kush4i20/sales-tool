@@ -59,6 +59,7 @@ state.hkmKnochenTransfers = [];
 state.hkmRangLog   = [];
 state.hkmTab       = 'leaderboard';
 state.hkmLeadsFilter = { status: '', region: '', assignedTo: '', search: '' };
+state.hkmBulkSelected = new Set();
 state.hkmCurrentLeadId = null;
 
 // ─── Utility ─────────────────────────────────────────────────────────────────
@@ -142,17 +143,25 @@ function setHkmTab(tab) {
     matkon: 'hkmMatkonView',
     analytics: 'hkmAnalyticsView',
     challenges: 'hkmChallengesView',
+    calendar: 'hkmCalendarView',
     admin: 'hkmAdminView'
   };
   Object.entries(views).forEach(([key, id]) => {
     const el = document.getElementById(id);
     if (el) el.style.display = key === tab ? 'block' : 'none';
   });
+  // Always hide session panel when switching tabs (unless staying on leads)
+  if (tab !== 'leads') {
+    const sessionPanel = document.getElementById('hkmSessionPanel');
+    if (sessionPanel) sessionPanel.style.display = 'none';
+    if (HkmSession.active) HkmSession.end();
+  }
   if (tab === 'leaderboard')  renderHkmLeaderboard();
   if (tab === 'leads')        renderHkmLeads();
   if (tab === 'matkon')       { renderMatkonProjects?.(); renderMatkonMemberFilter?.(); }
   if (tab === 'analytics')    renderHkmAnalytics();
   if (tab === 'challenges')   renderHkmChallenges();
+  if (tab === 'calendar')     renderHkmCalendar();
   if (tab === 'admin')        renderHkmAdmin();
 }
 
@@ -302,7 +311,7 @@ function renderHkmRecentActivities() {
     el.innerHTML = '<div class="hkm-empty">Noch keine Aktivitäten</div>';
     return;
   }
-  const icons = { call: '📞', demo: '📅', deal: '💰', absage: '❌' };
+  const icons = { call: '📞', demo: '📅', deal: '💰', produkt: '✅', visumat: '🎯', absage: '❌' };
   el.innerHTML = recent.map(a => {
     const lead = state.hkmLeads.find(l => l.id === a.lead_id);
     const profile = state.hkmProfiles[a.user_id];
@@ -350,7 +359,8 @@ function renderHkmLeads() {
   leads.sort((a, b) => new Date(b.createdAt||0) - new Date(a.createdAt||0));
 
   if (!leads.length) {
-    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px;">Keine Leads gefunden</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px;">Keine Leads gefunden</td></tr>';
+    hkmUpdateBulkBar();
     return;
   }
 
@@ -369,7 +379,11 @@ function renderHkmLeads() {
     const regionLabel = HKM_REGIONS.find(r => r.value === l.region)?.label || l.region || '';
     const acts = hkmGetLeadActivities(l.id);
     const lastAct = acts.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
-    return `<tr class="hkm-lead-row" onclick="openHkmLeadDetail('${l.id}')" style="cursor:pointer;">
+    const isChecked = state.hkmBulkSelected.has(l.id);
+    return `<tr class="hkm-lead-row" onclick="openHkmLeadDetail('${l.id}')" style="cursor:pointer;${isChecked ? 'background:rgba(245,158,11,.08);' : ''}">
+      <td onclick="event.stopPropagation();">
+        <input type="checkbox" class="hkm-lead-check" data-id="${l.id}" ${isChecked ? 'checked' : ''} onchange="hkmToggleBulkLead('${l.id}', this.checked)">
+      </td>
       <td><strong>${l.projektname || '–'}</strong></td>
       <td>${l.firma || '–'}<br><span style="font-size:11px;color:var(--muted);">${l.kontaktperson || ''}</span></td>
       <td style="font-size:12px;">${regionLabel || '–'}</td>
@@ -389,6 +403,20 @@ function renderHkmLeads() {
       </td>
     </tr>`;
   }).join('');
+
+  // Wire up select-all checkbox
+  const selectAllEl = document.getElementById('hkmSelectAll');
+  if (selectAllEl) {
+    selectAllEl.checked = leads.length > 0 && leads.every(l => state.hkmBulkSelected.has(l.id));
+    selectAllEl.onchange = function() {
+      leads.forEach(l => {
+        if (this.checked) state.hkmBulkSelected.add(l.id);
+        else state.hkmBulkSelected.delete(l.id);
+      });
+      renderHkmLeads();
+    };
+  }
+  hkmUpdateBulkBar();
 }
 
 function updateHkmLeadsFilters() {
@@ -404,6 +432,55 @@ function updateHkmLeadsFilters() {
   };
   renderHkmLeads();
 }
+
+// ─── Bulk Selection ───────────────────────────────────────────────────────────
+
+window.hkmToggleBulkLead = function(id, checked) {
+  if (checked) state.hkmBulkSelected.add(id);
+  else state.hkmBulkSelected.delete(id);
+  hkmUpdateBulkBar();
+  // Update row highlight
+  const row = document.querySelector(`.hkm-lead-check[data-id="${id}"]`)?.closest('tr');
+  if (row) row.style.background = checked ? 'rgba(245,158,11,.08)' : '';
+};
+
+function hkmUpdateBulkBar() {
+  const bar = document.getElementById('hkmBulkBar');
+  if (!bar) return;
+  const count = state.hkmBulkSelected.size;
+  bar.style.display = count > 0 ? 'flex' : 'none';
+  const countEl = document.getElementById('hkmBulkCount');
+  if (countEl) countEl.textContent = `${count} Lead${count !== 1 ? 's' : ''} ausgewählt`;
+  const delBtn = document.getElementById('hkmBulkDeleteBtn');
+  if (delBtn) delBtn.style.display = hkmIsAdmin() ? '' : 'none';
+}
+
+window.hkmClearBulkSelection = function() {
+  state.hkmBulkSelected.clear();
+  renderHkmLeads();
+};
+
+window.hkmBulkDelete = async function() {
+  if (!hkmIsAdmin()) { showToast('Nur Admins dürfen Leads löschen'); return; }
+  const count = state.hkmBulkSelected.size;
+  if (!count) return;
+  if (!confirm(`${count} Lead${count !== 1 ? 's' : ''} wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.`)) return;
+  const ids = [...state.hkmBulkSelected];
+  let deleted = 0;
+  for (const id of ids) {
+    try { await window.deleteHkmLead(id); deleted++; } catch(e) { /* continue */ }
+  }
+  state.hkmBulkSelected.clear();
+  showToast(`🗑️ ${deleted} Lead${deleted !== 1 ? 's' : ''} gelöscht`);
+  renderHkmLeads();
+};
+
+window.hkmResetLeadsFilter = function() {
+  state.hkmLeadsFilter = { status: '', region: '', assignedTo: '', search: '' };
+  ['hkmLeadsSearch','hkmLeadsFilterStatus','hkmLeadsFilterRegion','hkmLeadsFilterAssigned']
+    .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  renderHkmLeads();
+};
 
 // ─── Lead Detail Modal ────────────────────────────────────────────────────────
 
@@ -422,7 +499,8 @@ function openHkmLeadDetail(leadId) {
   document.getElementById('hkmDetailRegion').textContent   = HKM_REGIONS.find(r => r.value === lead.region)?.label || lead.region || '–';
   document.getElementById('hkmDetailTyp').textContent      = lead.projekttyp || '–';
   if (lead.url) {
-    document.getElementById('hkmDetailUrl').innerHTML = `<a href="${lead.url}" target="_blank" rel="noopener" style="color:var(--accent)">${lead.url}</a>`;
+    const urlDisplay = lead.url.length > 55 ? lead.url.slice(0, 52) + '…' : lead.url;
+    document.getElementById('hkmDetailUrl').innerHTML = `<a href="${lead.url}" target="_blank" rel="noopener" title="${lead.url}" style="color:var(--accent);word-break:break-all;">${urlDisplay}</a>`;
   } else {
     document.getElementById('hkmDetailUrl').textContent = '–';
   }
@@ -466,13 +544,13 @@ function renderHkmLeadActivities(leadId) {
     return;
   }
 
-  const icons = { call: '📞', demo: '📅', deal: '💰', absage: '❌' };
-  const labels = { call: 'Call', demo: 'Demo', deal: 'Deal abgeschlossen', absage: 'Absage' };
+  const icons = { call: '📞', demo: '📅', deal: '💰', produkt: '✅', visumat: '🎯', absage: '❌' };
+  const labels = { call: 'Call', demo: 'Demo', deal: 'Deal (alt)', produkt: 'Produkt verkauft', visumat: 'VisuMat Paket verkauft', absage: 'Absage' };
 
   el.innerHTML = acts.map(a => {
     const profile = state.hkmProfiles[a.user_id];
     let detail = '';
-    if (a.type === 'deal') detail = `${a.paket_name || ''} · CHF ${hkmFmt(a.paket_preis)} · ${a.zusage_kategorie || ''}`;
+    if (a.type === 'deal' || a.type === 'produkt' || a.type === 'visumat') detail = `${a.paket_name || ''} · CHF ${hkmFmt(a.paket_preis)} · ${a.zusage_kategorie || ''}`;
     if (a.type === 'absage') detail = a.absage_kategorie || '';
     if (a.notizen) detail += (detail ? ' · ' : '') + a.notizen;
 
@@ -601,10 +679,10 @@ function closeHkmActivityModal() {
 }
 
 function hkmToggleActivityFields(type) {
-  document.getElementById('hkmFieldsCall').style.display   = type === 'call'   ? 'block' : 'none';
-  document.getElementById('hkmFieldsDemo').style.display   = type === 'demo'   ? 'block' : 'none';
-  document.getElementById('hkmFieldsDeal').style.display   = type === 'deal'   ? 'block' : 'none';
-  document.getElementById('hkmFieldsAbsage').style.display = type === 'absage' ? 'block' : 'none';
+  document.getElementById('hkmFieldsCall').style.display   = type === 'call'                               ? 'block' : 'none';
+  document.getElementById('hkmFieldsDemo').style.display   = type === 'demo'                               ? 'block' : 'none';
+  document.getElementById('hkmFieldsDeal').style.display   = (type === 'deal' || type === 'produkt' || type === 'visumat') ? 'block' : 'none';
+  document.getElementById('hkmFieldsAbsage').style.display = type === 'absage'                             ? 'block' : 'none';
 }
 
 async function saveHkmActivityFromModal() {
@@ -626,7 +704,7 @@ async function saveHkmActivityFromModal() {
   if (type === 'demo') {
     activity.demo_date = document.getElementById('hkmActivityDemoDate').value || null;
   }
-  if (type === 'deal') {
+  if (type === 'deal' || type === 'produkt' || type === 'visumat') {
     const preis = parseFloat(document.getElementById('hkmActivityPaketPreis').value);
     if (!preis || preis <= 0) { showToast('Bitte Paketpreis eingeben'); return; }
     const zusageKat = document.getElementById('hkmActivityZusageKat').value;
@@ -645,7 +723,13 @@ async function saveHkmActivityFromModal() {
     await window.saveHkmActivity(activity);
     closeHkmActivityModal();
     renderHkmLeadActivities(leadId);
-    showToast(type === 'deal' ? '🦴 Deal gespeichert! Knochen werden vergeben...' : '✅ Aktivität gespeichert');
+    const isDealType = type === 'deal' || type === 'produkt' || type === 'visumat';
+    showToast(isDealType ? '🦴 Verkauf gespeichert! Knochen werden vergeben...' : '✅ Aktivität gespeichert');
+    // Auto-download ICS for demo
+    if (type === 'demo' && activity.demo_date) {
+      const lead = state.hkmLeads.find(l => l.id === leadId);
+      if (lead) hkmDownloadDemoIcs(activity, lead);
+    }
   } catch (e) {
     showToast('❌ Fehler: ' + e.message);
   }
@@ -1226,6 +1310,440 @@ function triggerHkmCelebration(neuRang, bonusChf) {
 // Make accessible globally (called from firebase.js after rang update)
 window.triggerHkmCelebration = triggerHkmCelebration;
 
+// ─── Calendar View ───────────────────────────────────────────────────────────
+
+state.hkmCalYear  = new Date().getFullYear();
+state.hkmCalMonth = new Date().getMonth(); // 0-based
+
+window.hkmCalNav = function(dir) {
+  let m = state.hkmCalMonth + dir;
+  let y = state.hkmCalYear;
+  if (m < 0) { m = 11; y--; }
+  if (m > 11) { m = 0; y++; }
+  state.hkmCalMonth = m;
+  state.hkmCalYear  = y;
+  renderHkmCalendar();
+};
+
+function renderHkmCalendar() {
+  const grid = document.getElementById('hkmCalendarGrid');
+  const label = document.getElementById('hkmCalMonthLabel');
+  if (!grid) return;
+
+  const year = state.hkmCalYear, month = state.hkmCalMonth;
+  if (label) label.textContent = new Date(year, month, 1).toLocaleDateString('de-CH', { month:'long', year:'numeric' });
+
+  const filterEl = document.getElementById('hkmCalFilter');
+  const filterVal = filterEl?.value || 'all';
+  const ownUid = hkmOwnUid();
+
+  // Collect all demo activities in this month
+  const demosThisMonth = state.hkmActivities.filter(a => {
+    if (a.type !== 'demo' || !a.demo_date) return false;
+    if (filterVal === 'mine' && a.user_id !== ownUid) return false;
+    const d = new Date(a.demo_date);
+    return d.getFullYear() === year && d.getMonth() === month;
+  });
+
+  // Build date → demos map
+  const dayMap = new Map();
+  demosThisMonth.forEach(a => {
+    const day = new Date(a.demo_date).getDate();
+    if (!dayMap.has(day)) dayMap.set(day, []);
+    const lead = state.hkmLeads.find(l => l.id === a.lead_id);
+    const profile = state.hkmProfiles[a.user_id];
+    dayMap.get(day).push({ activity: a, lead, profile });
+  });
+
+  // Calendar grid
+  const firstDay = new Date(year, month, 1).getDay(); // 0=Sun
+  const startOffset = (firstDay === 0) ? 6 : firstDay - 1; // Mon-based
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const today = new Date();
+  const isThisMonth = today.getFullYear() === year && today.getMonth() === month;
+
+  const DAYS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+  let html = `<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;">`;
+  // Header
+  DAYS.forEach(d => {
+    html += `<div style="text-align:center;font-size:11px;font-weight:700;color:var(--muted);padding:4px;">${d}</div>`;
+  });
+  // Empty cells before month start
+  for (let i = 0; i < startOffset; i++) html += `<div></div>`;
+  // Day cells
+  for (let day = 1; day <= daysInMonth; day++) {
+    const isToday = isThisMonth && today.getDate() === day;
+    const demos = dayMap.get(day) || [];
+    const demoBadges = demos.slice(0, 3).map(d => {
+      const name = d.lead?.projektname || d.lead?.firma || 'Demo';
+      const time = d.activity.demo_date?.includes('T') ? new Date(d.activity.demo_date).toLocaleTimeString('de-CH', { hour:'2-digit', minute:'2-digit' }) : '';
+      return `<div style="background:rgba(59,130,246,.15);color:#3b82f6;font-size:10px;padding:2px 5px;border-radius:4px;margin-top:2px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;" title="${name}">${time ? time+' ' : ''}${name}</div>`;
+    }).join('');
+    const moreCount = demos.length > 3 ? `<div style="font-size:9px;color:var(--muted);">+${demos.length-3} mehr</div>` : '';
+    html += `<div style="min-height:70px;border:1px solid rgba(255,255,255,.06);border-radius:6px;padding:4px 6px;${isToday ? 'border-color:var(--accent);' : ''}">
+      <div style="font-size:12px;font-weight:700;${isToday ? 'color:var(--accent);' : ''}">${day}</div>
+      ${demoBadges}${moreCount}
+    </div>`;
+  }
+  html += `</div>`;
+  if (!demosThisMonth.length) {
+    html += `<div style="text-align:center;color:var(--muted);font-size:13px;margin-top:16px;">Keine Demo-Termine in diesem Monat</div>`;
+  }
+  grid.innerHTML = html;
+}
+
+window.renderHkmCalendar = renderHkmCalendar;
+
+window.hkmExportCalendarIcs = function() {
+  const year = state.hkmCalYear, month = state.hkmCalMonth;
+  const filterEl = document.getElementById('hkmCalFilter');
+  const filterVal = filterEl?.value || 'all';
+  const ownUid = hkmOwnUid();
+
+  const demos = state.hkmActivities.filter(a => {
+    if (a.type !== 'demo' || !a.demo_date) return false;
+    if (filterVal === 'mine' && a.user_id !== ownUid) return false;
+    const d = new Date(a.demo_date);
+    return d.getFullYear() === year && d.getMonth() === month;
+  });
+
+  if (!demos.length) { showToast('Keine Demo-Termine in diesem Monat'); return; }
+
+  const events = demos.map(a => {
+    const lead = state.hkmLeads.find(l => l.id === a.lead_id) || {};
+    const dtStart = hkmFormatIcsDate(a.demo_date);
+    const dtEnd   = hkmAddMinutesToIcsDate(a.demo_date, 60);
+    const summary = `Demo: ${lead.projektname || lead.firma || 'Lead'}`;
+    const desc = [
+      lead.firma         && `Firma: ${lead.firma}`,
+      lead.kontaktperson && `Kontakt: ${lead.kontaktperson}`,
+      lead.telefon       && `Tel: ${lead.telefon}`
+    ].filter(Boolean).join('\\n');
+    return [
+      'BEGIN:VEVENT',
+      `DTSTART:${dtStart}`,
+      `DTEND:${dtEnd}`,
+      `SUMMARY:${summary}`,
+      desc ? `DESCRIPTION:${desc}` : '',
+      `UID:demo-${a.lead_id}-${a.createdAt||Date.now()}@livetour`,
+      `DTSTAMP:${hkmFormatIcsDate(new Date().toISOString().slice(0,16))}`,
+      'END:VEVENT'
+    ].filter(Boolean).join('\r\n');
+  }).join('\r\n');
+
+  const ics = `BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//liveTour//VisuMat Sales//DE\r\nCALSCALE:GREGORIAN\r\nMETHOD:PUBLISH\r\n${events}\r\nEND:VCALENDAR`;
+  const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  const monthName = new Date(year, month, 1).toLocaleDateString('de-CH', { month:'long', year:'numeric' }).replace(' ', '_');
+  a.download = `demos_${monthName}.ics`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  showToast(`📅 ${demos.length} Demo${demos.length!==1?'s':''} exportiert`);
+};
+
+// ─── VisuMat Call-Session ─────────────────────────────────────────────────────
+
+const HkmSession = {
+  leads: [],
+  idx: 0,
+  active: false,
+
+  start(leadIds) {
+    this.leads = leadIds.map(id => state.hkmLeads.find(l => l.id === id)).filter(Boolean);
+    if (!this.leads.length) { showToast('Keine Leads für Session ausgewählt'); return; }
+    this.idx = 0;
+    this.active = true;
+    // Show session panel, hide leads table
+    const panel = document.getElementById('hkmSessionPanel');
+    const leadsView = document.getElementById('hkmLeadsView');
+    if (panel) panel.style.display = 'block';
+    if (leadsView) leadsView.style.display = 'none';
+    // Make sure hkm section is active
+    this.loadCurrent();
+  },
+
+  loadCurrent() {
+    const lead = this.leads[this.idx];
+    if (!lead) { this.end(); return; }
+    const progress = `Lead ${this.idx + 1} / ${this.leads.length}`;
+    document.getElementById('hkmSessionProgress').textContent = progress;
+    document.getElementById('hkmSessionLeadName').textContent = lead.projektname || lead.firma || '(Unbekannt)';
+    document.getElementById('hkmSessionFirma').textContent = lead.firma ? (lead.projektname ? `Firma: ${lead.firma}` : '') : '';
+    const details = [
+      lead.kontaktperson && `👤 ${lead.kontaktperson}`,
+      lead.telefon       && `📞 ${lead.telefon}`,
+      lead.email         && `📧 ${lead.email}`,
+      lead.region        && `📍 ${HKM_REGIONS.find(r=>r.value===lead.region)?.label||lead.region}`
+    ].filter(Boolean);
+    document.getElementById('hkmSessionContact').innerHTML = details.map(d =>
+      `<span style="background:rgba(255,255,255,.08);padding:3px 10px;border-radius:6px;font-size:12px;">${d}</span>`
+    ).join('');
+    document.getElementById('hkmSessionNotes').value = '';
+    // Progress bar
+    const pct = Math.round(((this.idx) / this.leads.length) * 100);
+    const fill = document.getElementById('hkmSessionProgressFill');
+    if (fill) fill.style.width = pct + '%';
+    // Prev button
+    const prevBtn = document.getElementById('hkmSessionPrevBtn');
+    if (prevBtn) prevBtn.disabled = this.idx === 0;
+  },
+
+  async saveAndNext(result) {
+    const lead = this.leads[this.idx];
+    if (!lead) { this.next(); return; }
+    const notes = document.getElementById('hkmSessionNotes')?.value.trim() || null;
+    const activity = {
+      lead_id:   lead.id,
+      user_id:   hkmOwnUid(),
+      type:      'call',
+      result,
+      notizen:   notes,
+      createdAt: new Date().toISOString()
+    };
+    // Update lead status based on result
+    const statusMap = { demo_gebucht: 'demo_gebucht', interesse: 'kontaktiert', kein_interesse: 'abgesagt', nicht_erreicht: 'kontaktiert', callback: 'kontaktiert' };
+    const newStatus = statusMap[result];
+    try {
+      await window.saveHkmActivity(activity);
+      if (newStatus && lead.status !== 'abgeschlossen') {
+        await window.saveHkmLead({ ...lead, status: newStatus });
+      }
+      showToast(result === 'demo_gebucht' ? '📅 Demo gebucht!' : result === 'kein_interesse' ? '❌ Abgesagt' : '✅ Gespeichert');
+    } catch(e) {
+      showToast('❌ Fehler: ' + e.message);
+    }
+    this.next();
+  },
+
+  skipNext() {
+    this.next();
+  },
+
+  next() {
+    this.idx++;
+    if (this.idx >= this.leads.length) {
+      showToast(`✅ Session abgeschlossen! ${this.leads.length} Lead${this.leads.length!==1?'s':''} bearbeitet.`);
+      this.end();
+    } else {
+      this.loadCurrent();
+    }
+  },
+
+  prev() {
+    if (this.idx > 0) {
+      this.idx--;
+      this.loadCurrent();
+    }
+  },
+
+  end() {
+    this.active = false;
+    this.leads = [];
+    this.idx = 0;
+    const panel = document.getElementById('hkmSessionPanel');
+    const leadsView = document.getElementById('hkmLeadsView');
+    if (panel) panel.style.display = 'none';
+    if (leadsView) leadsView.style.display = 'block';
+    state.hkmBulkSelected.clear();
+    renderHkmLeads();
+  }
+};
+
+window.HkmSession = HkmSession;
+
+window.hkmStartBulkSession = function() {
+  const ids = [...state.hkmBulkSelected];
+  if (!ids.length) { showToast('Bitte zuerst Leads auswählen'); return; }
+  HkmSession.start(ids);
+};
+
+// ─── Import Log ──────────────────────────────────────────────────────────────
+
+window.renderImportLog = function() {
+  const container = document.getElementById('hkmImportLogContainer');
+  if (!container) return;
+
+  const leads = state.hkmLeads || [];
+  // Group by importBatchId
+  const batches = new Map();
+  leads.forEach(l => {
+    if (!l.importBatchId) return;
+    if (!batches.has(l.importBatchId)) {
+      batches.set(l.importBatchId, { id: l.importBatchId, leads: [], importedAt: l.importedAt });
+    }
+    batches.get(l.importBatchId).leads.push(l);
+  });
+
+  if (!batches.size) {
+    container.innerHTML = '<div style="color:var(--muted);font-size:13px;">Keine importierten Batches gefunden.</div>';
+    return;
+  }
+
+  const rows = [...batches.values()]
+    .sort((a, b) => (b.importedAt||0) - (a.importedAt||0))
+    .map(batch => {
+      const date = batch.importedAt ? new Date(batch.importedAt).toLocaleString('de-CH', { dateStyle:'short', timeStyle:'short' }) : '–';
+      return `<tr>
+        <td style="font-size:12px;">${date}</td>
+        <td style="font-size:11px;color:var(--muted);">${batch.id}</td>
+        <td style="text-align:center;font-weight:700;">${batch.leads.length}</td>
+        <td style="display:flex;gap:6px;">
+          <button class="btn" style="padding:3px 10px;font-size:12px;" onclick="hkmExportBatch('${batch.id}')">📥 CSV</button>
+          ${hkmIsAdmin() ? `<button class="btn" style="padding:3px 8px;font-size:12px;border-color:#ef4444;color:#ef4444;" onclick="hkmDeleteBatch('${batch.id}', ${batch.leads.length})">🗑️</button>` : ''}
+        </td>
+      </tr>`;
+    }).join('');
+
+  container.innerHTML = `<table style="width:100%;font-size:13px;">
+    <thead><tr style="background:rgba(245,158,11,.06);">
+      <th>Datum</th><th>Batch-ID</th><th>Leads</th><th>Aktionen</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+};
+
+window.hkmExportBatch = function(batchId) {
+  const origLeads = state.hkmLeads;
+  state.hkmLeads = (origLeads || []).filter(l => l.importBatchId === batchId);
+  window.hkmExportLeads('csv');
+  state.hkmLeads = origLeads;
+};
+
+window.hkmDeleteBatch = async function(batchId, count) {
+  if (!hkmIsAdmin()) { showToast('Nur Admins können Batches löschen'); return; }
+  if (!confirm(`Batch mit ${count} Lead${count!==1?'s':''} löschen?`)) return;
+  const toDelete = (state.hkmLeads || []).filter(l => l.importBatchId === batchId);
+  let deleted = 0;
+  for (const l of toDelete) {
+    try { await window.deleteHkmLead(l.id); deleted++; } catch(e) { /* continue */ }
+  }
+  showToast(`🗑️ ${deleted} Lead${deleted!==1?'s':''} gelöscht`);
+  renderImportLog();
+  renderHkmLeads();
+};
+
+// ─── VisuMat Export ──────────────────────────────────────────────────────────
+
+window.hkmExportLeads = function(format) {
+  const leads = [...(state.hkmLeads || [])];
+  if (!leads.length) { showToast('Keine Leads vorhanden'); return; }
+
+  const dateStr = new Date().toISOString().split('T')[0];
+  const statusLabels = { neu:'Neu', kontaktiert:'Kontaktiert', demo_gebucht:'Demo gebucht', abgeschlossen:'Gewonnen', abgesagt:'Abgesagt' };
+  const actLabels = { call:'Call', demo:'Demo', deal:'Deal (alt)', produkt:'Produkt verkauft', visumat:'VisuMat Paket verkauft', absage:'Absage' };
+
+  if (format === 'json') {
+    const json = JSON.stringify(leads, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `visumat_leads_${dateStr}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    showToast('📥 JSON exportiert');
+    return;
+  }
+
+  // CSV
+  const headers = [
+    'ID','Projektname','Firma','Kontaktperson','Email','Telefon',
+    'Region','Projekttyp','URL','Status','Zugewiesen (Name)','Vollständig',
+    'Erstellt','Letzte Aktivität','Anzahl Aktivitäten','Aktivitäten (Detail)','Import-Batch'
+  ];
+  const rows = leads.map(l => {
+    const profile = l.assigned_to ? state.hkmProfiles[l.assigned_to] : null;
+    const isComplete = !!(l.projektname && l.firma && l.kontaktperson && l.region);
+    const acts = hkmGetLeadActivities(l.id).sort((a,b) => new Date(a.createdAt)-new Date(b.createdAt));
+    const lastAct = acts[acts.length-1];
+    const actsDetail = acts.map(a => {
+      let d = `${actLabels[a.type]||a.type}`;
+      if (a.result) d += ` (${a.result})`;
+      if (a.paket_name) d += ` ${a.paket_name} CHF ${a.paket_preis||''}`;
+      if (a.notizen) d += ` — ${a.notizen}`;
+      d += ` [${a.createdAt ? new Date(a.createdAt).toLocaleDateString('de-CH') : ''}]`;
+      return d;
+    }).join(' | ');
+    return [
+      l.id, l.projektname, l.firma, l.kontaktperson, l.email, l.telefon,
+      HKM_REGIONS.find(r=>r.value===l.region)?.label || l.region || '',
+      l.projekttyp, l.url,
+      statusLabels[l.status] || l.status || '',
+      profile?.name || '',
+      isComplete ? 'Ja' : 'Nein',
+      l.createdAt ? new Date(l.createdAt).toLocaleDateString('de-CH') : '',
+      lastAct?.createdAt ? new Date(lastAct.createdAt).toLocaleDateString('de-CH') : '',
+      acts.length,
+      actsDetail,
+      l.importBatchId || ''
+    ];
+  });
+  const csv = [headers, ...rows].map(r => r.map(v => `"${String(v||'').replaceAll('"','""')}"`).join(',')).join('\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `visumat_leads_${dateStr}.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  showToast('📥 CSV exportiert');
+};
+
+// ─── ICS / Calendar ──────────────────────────────────────────────────────────
+
+function hkmFormatIcsDate(dtStr) {
+  // dtStr: "2026-05-01T14:30" → "20260501T143000"
+  if (!dtStr) return '';
+  return dtStr.replace(/[-:]/g, '').replace('T', 'T') + '00';
+}
+
+function hkmAddMinutesToIcsDate(dtStr, minutes) {
+  // Add N minutes to a datetime-local string
+  const d = new Date(dtStr);
+  d.setMinutes(d.getMinutes() + minutes);
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`;
+}
+
+function hkmDownloadDemoIcs(activity, lead) {
+  const dtStr = activity.demo_date;
+  if (!dtStr) return;
+  const dtStart = hkmFormatIcsDate(dtStr);
+  const dtEnd   = hkmAddMinutesToIcsDate(dtStr, 60);
+  const summary = `Demo: ${lead.projektname || lead.firma || 'Lead'}`;
+  const desc = [
+    lead.firma        && `Firma: ${lead.firma}`,
+    lead.kontaktperson && `Kontakt: ${lead.kontaktperson}`,
+    lead.telefon      && `Tel: ${lead.telefon}`,
+    lead.email        && `Email: ${lead.email}`
+  ].filter(Boolean).join('\\n');
+  const uid = `demo-${lead.id}-${Date.now()}@livetour`;
+  const ics = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//liveTour//VisuMat Sales//DE',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    'BEGIN:VEVENT',
+    `DTSTART:${dtStart}`,
+    `DTEND:${dtEnd}`,
+    `SUMMARY:${summary}`,
+    desc ? `DESCRIPTION:${desc}` : '',
+    `UID:${uid}`,
+    `DTSTAMP:${hkmFormatIcsDate(new Date().toISOString().slice(0,16))}`,
+    'END:VEVENT',
+    'END:VCALENDAR'
+  ].filter(Boolean).join('\r\n');
+
+  const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const safeName = (lead.projektname || lead.firma || 'demo').replace(/[^a-zA-Z0-9_-]/g, '_');
+  a.download = `demo_${safeName}.ics`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 // ─── Lead Import (CSV / Excel) ────────────────────────────────────────────────
 
 function hkmNormalizeHeader(h) {
@@ -1266,6 +1784,9 @@ window.hkmDownloadImportTemplate = function() {
   URL.revokeObjectURL(url);
 };
 
+// Pending import state (used by duplicate modal)
+let _hkmPendingImport = null;
+
 window.hkmImportLeads = async function() {
   const fileInput = document.getElementById('hkmImportFile');
   const assignTo  = document.getElementById('hkmImportAssign')?.value || '';
@@ -1277,13 +1798,13 @@ window.hkmImportLeads = async function() {
   const file = fileInput.files[0];
   const name = file.name.toLowerCase();
 
-  let rows = [];   // array of arrays
+  let rows = [];
   let headers = [];
 
   try {
     if (name.endsWith('.csv') || name.endsWith('.txt') || name.endsWith('.tsv')) {
       const text = await file.text();
-      const lines = text.split(/\r?\n/).filter(l => l.trim());
+      const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/).filter(l => l.trim());
       const delim = text.includes(';') ? ';' : (text.includes('\t') ? '\t' : ',');
       const parsed = lines.map(l => l.split(delim).map(c => c.replace(/^"|"$/g,'').trim()));
       headers = parsed[0];
@@ -1303,44 +1824,113 @@ window.hkmImportLeads = async function() {
     return;
   }
 
-  let imported = 0, skipped = 0;
+  // Build leads array
+  const batchId = 'import_' + Date.now();
+  const mapped_leads = [];
+  let parseSkipped = 0;
   for (const row of rows) {
-    if (row.every(c => !String(c).trim())) { skipped++; continue; }
+    if (row.every(c => !String(c).trim())) { parseSkipped++; continue; }
     const mapped = hkmMapRow(row, headers);
-    if (!mapped.projektname && !mapped.firma) { skipped++; continue; }
-
-    const lead = {
-      projektname: mapped.projektname || mapped.firma || '(Unbekannt)',
-      firma:       mapped.firma || '',
-      kontakt:     mapped.kontakt || '',
-      email:       mapped.email || '',
-      telefon:     mapped.telefon || '',
-      region:      mapped.region || '',
-      url:         mapped.url || '',
-      notizen:     mapped.notizen || '',
-      typ:         'import',
-      status:      'neu',
-      assigned_to: assignTo || null,
-      checklist:   {}
-    };
-
-    try {
-      await window.saveHkmLead(lead);
-      imported++;
-    } catch(e) {
-      skipped++;
-    }
+    if (!mapped.projektname && !mapped.firma) { parseSkipped++; continue; }
+    mapped_leads.push({
+      projektname:   mapped.projektname || mapped.firma || '(Unbekannt)',
+      firma:         mapped.firma || '',
+      kontaktperson: mapped.kontakt || '',
+      email:         mapped.email || '',
+      telefon:       mapped.telefon || '',
+      region:        mapped.region || '',
+      url:           mapped.url || '',
+      notizen:       mapped.notizen || '',
+      typ:           'import',
+      status:        'neu',
+      assigned_to:   assignTo || null,
+      checklist:     {},
+      importBatchId: batchId,
+      importedAt:    Date.now()
+    });
   }
 
+  if (!mapped_leads.length) {
+    if (resultEl) { resultEl.textContent = `⚠️ Keine gültigen Zeilen gefunden (${parseSkipped} übersprungen).`; resultEl.style.display = ''; resultEl.style.background = 'rgba(234,88,12,.1)'; }
+    return;
+  }
+
+  // Duplicate detection: key = lowercase(projektname+firma)
+  const existingMap = new Map();
+  (state.hkmLeads || []).forEach(l => {
+    const key = ((l.projektname||'') + '|' + (l.firma||'')).toLowerCase().trim();
+    if (key && key !== '|') existingMap.set(key, l);
+  });
+
+  const clean = [], dupes = [];
+  mapped_leads.forEach(l => {
+    const key = ((l.projektname||'') + '|' + (l.firma||'')).toLowerCase().trim();
+    const existing = existingMap.get(key);
+    if (existing) dupes.push({ incoming: l, existing });
+    else clean.push(l);
+  });
+
+  if (dupes.length > 0) {
+    // Show duplicate preview modal
+    _hkmPendingImport = { clean, dupes, assignTo, resultEl, fileInput, batchId };
+    hkmShowDupesModal(clean.length, dupes, parseSkipped);
+  } else {
+    await hkmExecuteImport(clean, [], resultEl, fileInput, parseSkipped);
+  }
+};
+
+function hkmShowDupesModal(cleanCount, dupes, parseSkipped) {
+  const modal = document.getElementById('hkmImportDupesModal');
+  if (!modal) { console.warn('hkmImportDupesModal not found'); return; }
+  document.getElementById('hkmDupeSummary').innerHTML =
+    `<strong>${cleanCount}</strong> neue Leads + <strong>${dupes.length}</strong> mögliche Duplikate gefunden.
+     <br>Wähle welche Duplikate trotzdem importiert werden sollen:`;
+  const tbody = document.getElementById('hkmDupesBody');
+  tbody.innerHTML = dupes.map((d, i) => `
+    <tr>
+      <td><input type="checkbox" id="hkmDupe_${i}" data-idx="${i}"></td>
+      <td style="font-size:12px;"><strong>${d.incoming.projektname||'–'}</strong><br><span style="color:var(--muted)">${d.incoming.firma||''}</span></td>
+      <td style="font-size:12px;">${d.incoming.kontaktperson||'–'}</td>
+      <td style="font-size:11px;color:#f59e0b;">⚠️ Bereits vorhanden:<br>${d.existing.projektname||d.existing.firma||'–'}</td>
+    </tr>`).join('');
+  modal.style.display = 'flex';
+}
+
+window.hkmCancelImport = function() {
+  document.getElementById('hkmImportDupesModal').style.display = 'none';
+  _hkmPendingImport = null;
+};
+
+window.hkmConfirmImport = async function() {
+  if (!_hkmPendingImport) return;
+  const { clean, dupes, resultEl, fileInput, batchId } = _hkmPendingImport;
+  // Collect checked dupes
+  const checkedDupes = dupes.filter((_, i) => {
+    const cb = document.getElementById(`hkmDupe_${i}`);
+    return cb?.checked;
+  }).map(d => d.incoming);
+  document.getElementById('hkmImportDupesModal').style.display = 'none';
+  _hkmPendingImport = null;
+  const parseSkipped = 0;
+  await hkmExecuteImport(clean, checkedDupes, resultEl, fileInput, parseSkipped);
+};
+
+async function hkmExecuteImport(clean, selectedDupes, resultEl, fileInput, parseSkipped) {
+  const toImport = [...clean, ...selectedDupes];
+  let imported = 0, failed = 0;
+  for (const lead of toImport) {
+    try { await window.saveHkmLead(lead); imported++; } catch(e) { failed++; }
+  }
+  const skippedTotal = (toImport.length === 0 ? parseSkipped : parseSkipped + (clean.length - imported + failed));
   if (resultEl) {
-    resultEl.textContent = `✅ ${imported} Lead${imported !== 1 ? 's' : ''} importiert${skipped > 0 ? ` · ${skipped} übersprungen` : ''}.`;
+    resultEl.textContent = `✅ ${imported} Lead${imported!==1?'s':''} importiert${(parseSkipped+failed)>0 ? ` · ${parseSkipped+failed} übersprungen` : ''}.`;
     resultEl.style.display = '';
     resultEl.style.background = 'rgba(16,185,129,.1)';
     resultEl.style.color = '#065f46';
   }
-  fileInput.value = '';
+  if (fileInput) fileInput.value = '';
   renderHkmLeads();
-};
+}
 
 // Populate assign dropdown in Admin → Import card
 function hkmPopulateImportAssign() {
@@ -1359,9 +1949,15 @@ document.addEventListener('DOMContentLoaded', function() {
     btn.addEventListener('click', () => setHkmTab(btn.dataset.hkmTab));
   });
 
-  // Activity type toggle
-  const actTypeEl = document.getElementById('hkmActivityType');
-  if (actTypeEl) actTypeEl.addEventListener('change', e => hkmToggleActivityFields(e.target.value));
+  // Activity type toggle (radio buttons → update hidden input + toggle fields)
+  document.querySelectorAll('[name="hkmActType"]').forEach(radio => {
+    radio.addEventListener('change', e => {
+      const type = e.target.value;
+      const hidden = document.getElementById('hkmActivityType');
+      if (hidden) hidden.value = type;
+      hkmToggleActivityFields(type);
+    });
+  });
 
   // Leads search/filter
   const leadsSearch = document.getElementById('hkmLeadsSearch');
@@ -1377,10 +1973,13 @@ document.addEventListener('DOMContentLoaded', function() {
   if (analyticsApply) analyticsApply.addEventListener('click', renderHkmAnalytics);
 
   // Click outside modal to close
-  ['hkmLeadModal', 'hkmLeadDetailModal', 'hkmActivityModal', 'hkmTransferModal'].forEach(id => {
+  ['hkmLeadModal', 'hkmLeadDetailModal', 'hkmActivityModal', 'hkmTransferModal', 'hkmImportDupesModal'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.addEventListener('click', e => {
-      if (e.target === el) el.style.display = 'none';
+      if (e.target === el) {
+        el.style.display = 'none';
+        if (id === 'hkmImportDupesModal') _hkmPendingImport = null;
+      }
     });
   });
 });

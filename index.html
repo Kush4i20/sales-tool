@@ -693,6 +693,15 @@
           <button class="btn good" id="btnSaveSettings">💾 Speichern</button>
         </div>
 
+        <!-- Settings Tabs -->
+        <div class="analytics-tabs" style="margin-bottom:20px;">
+          <button class="analytics-tab active" data-settings-tab="allgemein">👤 Allgemein</button>
+          <button class="analytics-tab" data-settings-tab="import-export">📥 Import / Export</button>
+          <button class="analytics-tab" data-settings-tab="daten">🗄️ Daten</button>
+        </div>
+
+        <!-- TAB: Allgemein -->
+        <div id="settingsTabAllgemein">
         <div class="card">
           <div class="card-head"><h3 class="card-title">Profil</h3></div>
           <div class="card-content">
@@ -766,45 +775,6 @@
               <input type="checkbox" id="settingsCommAutoCompose">
               In Session bei Mail/FU-Mails automatisch Mail-Aktion ausfuehren
             </label>
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="card-head"><h3 class="card-title">Import / Export</h3></div>
-          <div class="card-content">
-            <h4 style="margin:0 0 10px; font-size:13px; font-weight:600;">Daten exportieren</h4>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom:16px;">
-              <button class="btn primary" id="btnExportCalls">📥 Calls (CSV)</button>
-              <button class="btn primary" id="btnExportOutreach">📥 LinkedIn Outreach (CSV)</button>
-              <button class="btn" id="btnExportAddresses">📥 Alle Adressen (CSV)</button>
-              <button class="btn primary" id="btnExportFull">📥 Vollständig (CSV)</button>
-            </div>
-            <div class="divider" style="margin:0 0 16px;"></div>
-            <div class="two-col" style="margin-bottom: 16px;">
-              <div>
-                <label class="label">CSV Upload</label>
-                <input type="file" id="csvUpload" accept=".csv,.txt,.tsv,.xls,.xlsx" class="input-field" style="padding: 8px">
-                <button class="btn primary" id="btnUploadCSV" onclick="window.handleCsvUploadClick && window.handleCsvUploadClick()" style="width: 100%; margin-top: 8px">📥 CSV laden</button>
-              </div>
-              <div>
-                <label class="label">CSV Einfuegen</label>
-                <textarea id="csvPaste" class="input-field" placeholder="Firma	Vorname	Nachname	Telefon	E-Mail	Strasse	Ortschaft	Region" style="min-height: 80px; font-family: monospace; font-size: 11px;"></textarea>
-                <button class="btn primary" id="btnPasteCSV" onclick="window.handleCsvPasteClick && window.handleCsvPasteClick()" style="width: 100%; margin-top: 8px">📋 Einfuegen</button>
-              </div>
-            </div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-              <button class="btn" id="btnExportContacts" style="width: 100%">📥 Kontakte (CSV)</button>
-              <button class="btn" id="btnClearAllContacts" style="width: 100%">🗑️ Alle loeschen</button>
-            </div>
-
-            <div class="divider"></div>
-
-            <h4 style="margin: 0 0 12px 0; font-size: 13px; font-weight: 600;">Migration (Firebase JSON)</h4>
-            <label class="label">JSON-Datei hochladen</label>
-            <input type="file" id="migrationJsonFile" accept=".json" class="input-field" style="padding: 8px">
-            <label class="label">JSON einfuegen</label>
-            <textarea id="migrationJsonPaste" class="input-field" placeholder="Firebase JSON-Export" style="min-height: 120px; font-family: monospace; font-size: 11px;"></textarea>
-            <button class="btn primary" id="btnImportMigrationJson" style="width: 100%;">⬆️ Importieren & Ueberschreiben</button>
           </div>
         </div>
 
@@ -896,7 +866,58 @@
             <div id="uidMigrationResult" style="margin-top:12px;font-size:13px;display:none;padding:10px;border-radius:8px;"></div>
           </div>
         </div>
+        </div><!-- end settingsTabAllgemein -->
 
+        <!-- TAB: Import / Export -->
+        <div id="settingsTabImportExport" style="display:none;">
+        <div class="card">
+          <div class="card-head"><h3 class="card-title">Import / Export (Kontakte)</h3></div>
+          <div class="card-content">
+            <h4 style="margin:0 0 10px; font-size:13px; font-weight:600;">Daten exportieren</h4>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom:16px;">
+              <button class="btn primary" id="btnExportCalls">📥 Calls (CSV)</button>
+              <button class="btn primary" id="btnExportOutreach">📥 LinkedIn Outreach (CSV)</button>
+              <button class="btn" id="btnExportAddresses">📥 Alle Adressen (CSV)</button>
+              <button class="btn primary" id="btnExportFull">📥 Vollständig (CSV)</button>
+            </div>
+            <div class="divider" style="margin:0 0 16px;"></div>
+            <div class="two-col" style="margin-bottom: 16px;">
+              <div>
+                <label class="label">CSV Upload</label>
+                <input type="file" id="csvUpload" accept=".csv,.txt,.tsv,.xls,.xlsx" class="input-field" style="padding: 8px">
+                <button class="btn primary" id="btnUploadCSV" onclick="window.handleCsvUploadClick && window.handleCsvUploadClick()" style="width: 100%; margin-top: 8px">📥 CSV laden</button>
+              </div>
+              <div>
+                <label class="label">CSV Einfuegen</label>
+                <textarea id="csvPaste" class="input-field" placeholder="Firma	Vorname	Nachname	Telefon	E-Mail	Strasse	Ortschaft	Region" style="min-height: 80px; font-family: monospace; font-size: 11px;"></textarea>
+                <button class="btn primary" id="btnPasteCSV" onclick="window.handleCsvPasteClick && window.handleCsvPasteClick()" style="width: 100%; margin-top: 8px">📋 Einfuegen</button>
+              </div>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+              <button class="btn" id="btnExportContacts" style="width: 100%">📥 Kontakte (CSV)</button>
+              <button class="btn" id="btnClearAllContacts" style="width: 100%">🗑️ Alle loeschen</button>
+            </div>
+            <div class="divider"></div>
+            <h4 style="margin: 0 0 12px 0; font-size: 13px; font-weight: 600;">Migration (Firebase JSON)</h4>
+            <label class="label">JSON-Datei hochladen</label>
+            <input type="file" id="migrationJsonFile" accept=".json" class="input-field" style="padding: 8px">
+            <label class="label">JSON einfuegen</label>
+            <textarea id="migrationJsonPaste" class="input-field" placeholder="Firebase JSON-Export" style="min-height: 120px; font-family: monospace; font-size: 11px;"></textarea>
+            <button class="btn primary" id="btnImportMigrationJson" style="width: 100%;">⬆️ Importieren & Ueberschreiben</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h3 class="card-title">📋 Import-Protokoll (VisuMat Leads)</h3></div>
+          <div class="card-content">
+            <div id="hkmImportLogContainer">
+              <div style="color:var(--muted);font-size:13px;">Öffne diesen Tab um das Import-Protokoll zu laden.</div>
+            </div>
+          </div>
+        </div>
+        </div><!-- end settingsTabImportExport -->
+
+        <!-- TAB: Daten -->
+        <div id="settingsTabDaten" style="display:none;">
         <div class="card">
           <div class="card-head"><h3 class="card-title">Daten</h3></div>
           <div class="card-content" style="overflow-x: auto;">
@@ -920,6 +941,7 @@
             </table>
           </div>
         </div>
+        </div><!-- end settingsTabDaten -->
       </div>
 
       <!-- ── ANALYTICS DASHBOARD SEKTION ── -->
@@ -1329,6 +1351,7 @@
           <button class="filter-tab" data-hkm-tab="matkon">🐾 Projekte</button>
           <button class="filter-tab" data-hkm-tab="analytics">📊 Analytics</button>
           <button class="filter-tab" data-hkm-tab="challenges">⚔️ Challenges</button>
+          <button class="filter-tab" data-hkm-tab="calendar">📅 Kalender</button>
           <button class="filter-tab" data-hkm-tab="admin" style="display:none;">⚙️ Admin</button>
         </div>
 
@@ -1353,7 +1376,7 @@
         <div id="hkmLeadsView" style="display:none;">
           <div class="card" style="margin-bottom:16px;">
             <div class="card-content">
-              <div style="display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr;gap:12px;">
+              <div style="display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr auto;gap:12px;align-items:flex-end;">
                 <div>
                   <label class="label">Suche</label>
                   <input type="text" id="hkmLeadsSearch" class="input-field" placeholder="Projektname, Firma..." style="margin:0;">
@@ -1387,6 +1410,10 @@
                     <option value="">Alle Mitarbeiter</option>
                   </select>
                 </div>
+                <div>
+                  <label class="label">&nbsp;</label>
+                  <button class="btn" onclick="hkmResetLeadsFilter()" style="margin:0;white-space:nowrap;" title="Filter zurücksetzen">✕ Reset</button>
+                </div>
               </div>
             </div>
           </div>
@@ -1395,6 +1422,7 @@
               <table>
                 <thead>
                   <tr style="background:rgba(245,158,11,.06);">
+                    <th style="width:32px;"><input type="checkbox" id="hkmSelectAll" title="Alle auswählen"></th>
                     <th>Projektname</th>
                     <th>Firma / Kontakt</th>
                     <th>Region</th>
@@ -1406,9 +1434,54 @@
                   </tr>
                 </thead>
                 <tbody id="hkmLeadsBody">
-                  <tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px;">Keine Leads. Erstelle deinen ersten Lead!</td></tr>
+                  <tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px;">Keine Leads. Erstelle deinen ersten Lead!</td></tr>
                 </tbody>
               </table>
+            </div>
+          </div>
+          <!-- Bulk action bar -->
+          <div id="hkmBulkBar" style="display:none;position:sticky;bottom:16px;background:var(--card);border:1.5px solid var(--accent);border-radius:10px;padding:10px 16px;display:flex;align-items:center;gap:12px;box-shadow:0 4px 16px rgba(0,0,0,.15);">
+            <span id="hkmBulkCount" style="font-weight:700;font-size:13px;">0 ausgewählt</span>
+            <button class="btn primary" onclick="hkmStartBulkSession()" style="font-size:12px;">▶ Session starten</button>
+            <button class="btn" id="hkmBulkDeleteBtn" onclick="hkmBulkDelete()" style="font-size:12px;border-color:#ef4444;color:#ef4444;display:none;">🗑️ Löschen</button>
+            <button class="btn" onclick="hkmClearBulkSelection()" style="font-size:12px;margin-left:auto;">✕ Auswahl aufheben</button>
+          </div>
+        </div>
+
+        <!-- ── HKM SESSION PANEL ─────────────────────────────────────── -->
+        <div id="hkmSessionPanel" style="display:none;">
+          <div class="card" style="margin-bottom:16px;">
+            <div class="card-content">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                <div>
+                  <div style="font-size:13px;color:var(--muted);">VisuMat Call-Session</div>
+                  <div id="hkmSessionProgress" style="font-size:18px;font-weight:700;">Lead 1 / 5</div>
+                </div>
+                <button class="btn" onclick="HkmSession.end()" style="border-color:#ef4444;color:#ef4444;">✕ Session beenden</button>
+              </div>
+              <div class="card" style="margin-bottom:16px;background:rgba(245,158,11,.05);">
+                <div class="card-content">
+                  <div id="hkmSessionLeadName" style="font-size:18px;font-weight:700;margin-bottom:4px;"></div>
+                  <div id="hkmSessionFirma" style="font-size:14px;color:var(--muted);margin-bottom:8px;"></div>
+                  <div id="hkmSessionContact" style="font-size:13px;display:flex;flex-wrap:wrap;gap:12px;"></div>
+                </div>
+              </div>
+              <label class="label">Notizen</label>
+              <textarea id="hkmSessionNotes" class="input-field" rows="3" placeholder="Kurze Notiz zum Gespräch..." style="margin-bottom:16px;"></textarea>
+              <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;">
+                <button class="btn primary" onclick="HkmSession.saveAndNext('demo_gebucht')" style="background:#3b82f6;border-color:#3b82f6;">📅 Demo gebucht</button>
+                <button class="btn" onclick="HkmSession.saveAndNext('interesse')" style="border-color:#10b981;color:#10b981;">✅ Interesse</button>
+                <button class="btn" onclick="HkmSession.saveAndNext('nicht_erreicht')" style="border-color:#6b7280;color:#6b7280;">📵 Nicht erreicht</button>
+                <button class="btn" onclick="HkmSession.saveAndNext('callback')" style="border-color:#f59e0b;color:#f59e0b;">🔄 Rückruf</button>
+                <button class="btn" onclick="HkmSession.saveAndNext('kein_interesse')" style="border-color:#ef4444;color:#ef4444;">❌ Kein Interesse</button>
+                <button class="btn" onclick="HkmSession.skipNext()" style="margin-left:auto;">⏭ Überspringen</button>
+              </div>
+              <div style="display:flex;gap:8px;align-items:center;">
+                <button class="btn" onclick="HkmSession.prev()" id="hkmSessionPrevBtn">◀ Zurück</button>
+                <div id="hkmSessionProgressBar" style="flex:1;height:6px;background:rgba(245,158,11,.2);border-radius:4px;overflow:hidden;">
+                  <div id="hkmSessionProgressFill" style="height:100%;background:var(--accent);border-radius:4px;transition:width .3s;width:0%;"></div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -1479,6 +1552,29 @@
           <div id="hkmChallengesContent"></div>
         </div>
 
+        <!-- ── KALENDER ───────────────────────────────────────────────── -->
+        <div id="hkmCalendarView" style="display:none;">
+          <div class="card" style="margin-bottom:16px;">
+            <div class="card-content">
+              <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                <button class="btn" onclick="hkmCalNav(-1)">◀</button>
+                <span id="hkmCalMonthLabel" style="font-weight:700;font-size:15px;min-width:140px;text-align:center;"></span>
+                <button class="btn" onclick="hkmCalNav(1)">▶</button>
+                <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
+                  <select id="hkmCalFilter" class="input-field" style="margin:0;min-width:140px;" onchange="renderHkmCalendar()">
+                    <option value="all">Alle Mitarbeiter</option>
+                    <option value="mine">Nur meine Demos</option>
+                  </select>
+                  <button class="btn" onclick="hkmExportCalendarIcs()">📥 ICS exportieren</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-content" id="hkmCalendarGrid"></div>
+          </div>
+        </div>
+
         <!-- ── ADMIN ──────────────────────────────────────────────────── -->
         <div id="hkmAdminView" style="display:none;">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
@@ -1510,6 +1606,20 @@
                 <button class="btn" onclick="hkmDownloadImportTemplate()" style="white-space:nowrap;">⬇️ Vorlage</button>
               </div>
               <div id="hkmImportResult" style="margin-top:12px;font-size:13px;display:none;padding:10px;border-radius:8px;"></div>
+            </div>
+          </div>
+
+          <!-- Export Card -->
+          <div class="card" style="margin-bottom:16px;">
+            <div class="card-head">
+              <h3 class="card-title">📤 Export</h3>
+              <div class="card-sub">Alle Leads mit Aktivitäten exportieren</div>
+            </div>
+            <div class="card-content">
+              <div style="display:flex;gap:12px;flex-wrap:wrap;">
+                <button class="btn" onclick="hkmExportLeads('csv')">⬇️ CSV (Excel)</button>
+                <button class="btn" onclick="hkmExportLeads('json')">⬇️ JSON (vollständig)</button>
+              </div>
             </div>
           </div>
 
@@ -1787,10 +1897,11 @@
             <div id="hkmActivityLeadName" style="font-size:13px;color:var(--muted);margin-bottom:12px;"></div>
             <div style="margin-bottom:16px;">
               <label class="label">Typ</label>
-              <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;">
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:8px;">
                 <label class="hkm-type-btn"><input type="radio" name="hkmActType" value="call" id="hkmActTypeCall" checked> 📞 Call</label>
                 <label class="hkm-type-btn"><input type="radio" name="hkmActType" value="demo" id="hkmActTypeDemo"> 📅 Demo</label>
-                <label class="hkm-type-btn"><input type="radio" name="hkmActType" value="deal" id="hkmActTypeDeal"> 💰 Deal</label>
+                <label class="hkm-type-btn"><input type="radio" name="hkmActType" value="produkt" id="hkmActTypeProdukt"> ✅ Produkt</label>
+                <label class="hkm-type-btn"><input type="radio" name="hkmActType" value="visumat" id="hkmActTypeVisumat"> 🎯 VisuMat</label>
                 <label class="hkm-type-btn"><input type="radio" name="hkmActType" value="absage" id="hkmActTypeAbsage"> ❌ Absage</label>
               </div>
               <input type="hidden" id="hkmActivityType" value="call">
@@ -1811,11 +1922,12 @@
 
             <!-- Demo fields -->
             <div id="hkmFieldsDemo" style="display:none;">
-              <label class="label">Demo-Datum</label>
-              <input type="date" id="hkmActivityDemoDate" class="input-field">
+              <label class="label">Demo-Datum &amp; Uhrzeit</label>
+              <input type="datetime-local" id="hkmActivityDemoDate" class="input-field">
+              <div style="font-size:11px;color:var(--muted);margin-top:4px;">Nach dem Speichern wird automatisch eine .ics Kalenderdatei heruntergeladen.</div>
             </div>
 
-            <!-- Deal fields -->
+            <!-- Produkt / VisuMat Paket fields (shared) -->
             <div id="hkmFieldsDeal" style="display:none;">
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
                 <div>
@@ -1873,6 +1985,36 @@
           <div class="modal-footer">
             <button class="btn" onclick="closeHkmActivityModal()">Abbrechen</button>
             <button class="btn primary" onclick="saveHkmActivityFromModal()">💾 Speichern</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Import Duplicates Modal -->
+      <div id="hkmImportDupesModal" class="modal" style="display:none;">
+        <div class="modal-content" style="max-width:720px;">
+          <div class="modal-header">
+            <h2>Duplikate prüfen</h2>
+            <button onclick="hkmCancelImport()" class="modal-close">✕</button>
+          </div>
+          <div class="modal-body">
+            <p id="hkmDupeSummary" style="margin-bottom:16px;font-size:13px;"></p>
+            <div style="overflow-x:auto;">
+              <table style="width:100%;font-size:12px;">
+                <thead>
+                  <tr style="background:rgba(245,158,11,.08);">
+                    <th style="width:36px;">Import?</th>
+                    <th>Neuer Lead</th>
+                    <th>Kontakt</th>
+                    <th>Konflikt</th>
+                  </tr>
+                </thead>
+                <tbody id="hkmDupesBody"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn" onclick="hkmCancelImport()">Abbrechen</button>
+            <button class="btn primary" onclick="hkmConfirmImport()">📥 Importieren</button>
           </div>
         </div>
       </div>

@@ -4201,7 +4201,7 @@
         ];
       });
       const csv = [headers, ...rows].map(r => r.map(v => `"${String(v || '').replaceAll('"', '""')}"`).join(',')).join('\n');
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
       link.setAttribute('href', URL.createObjectURL(blob));
       link.setAttribute('download', `contacts_${new Date().toISOString().split('T')[0]}.csv`);
@@ -4253,7 +4253,7 @@
       });
 
       const csv = [headers, ...rows].map(r => r.map(v => `"${String(v || '').replaceAll('"', '""')}"`).join(',')).join('\n');
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
       link.setAttribute('href', URL.createObjectURL(blob));
       link.setAttribute('download', `linkedin_outreach_${new Date().toISOString().split('T')[0]}.csv`);
@@ -5608,7 +5608,7 @@
       });
       
       const csv = [headers, ...rows].map(r => r.map(v => `"${String(v || '').replaceAll('"', '""')}"`).join(',')).join('\n');
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
       link.setAttribute('href', URL.createObjectURL(blob));
       link.setAttribute('download', `calls_${new Date().toISOString().split('T')[0]}.csv`);
@@ -9259,6 +9259,22 @@ www.livetour.ch`;
           document.querySelectorAll('[data-analytics-module]').forEach(b => b.classList.remove('active'));
           btn.classList.add('active');
           renderAnalytics();
+        });
+      });
+
+      // Settings tab switching
+      document.querySelectorAll('[data-settings-tab]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('[data-settings-tab]').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          const tab = btn.dataset.settingsTab;
+          const allgemeinEl = document.getElementById('settingsTabAllgemein');
+          const importExportEl = document.getElementById('settingsTabImportExport');
+          const datenEl = document.getElementById('settingsTabDaten');
+          if (allgemeinEl)    allgemeinEl.style.display    = tab === 'allgemein'      ? '' : 'none';
+          if (importExportEl) importExportEl.style.display = tab === 'import-export'  ? '' : 'none';
+          if (datenEl)        datenEl.style.display        = tab === 'daten'          ? '' : 'none';
+          if (tab === 'import-export') renderImportLog();
         });
       });
 
