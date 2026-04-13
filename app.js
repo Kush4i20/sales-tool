@@ -6128,6 +6128,11 @@
 
         document.getElementById('sessionNotes').value = '';
         document.getElementById('sessionProgress').textContent = `${this.currentIdx + 1} / ${this.contacts.length}`;
+        // Update progress bar fill
+        const _sPct = this.contacts.length > 1 ? Math.round((this.currentIdx / (this.contacts.length - 1)) * 100) : 100;
+        const _sFill = document.getElementById('sessionProgressFill');
+        if (_sFill) _sFill.style.width = _sPct + '%';
+        this.renderQueue();
         renderSessionResultButtons(this.mode);
         renderSessionPersonSelect(contact, this.selectedPersonId || contact.id);
         this.selectedPersonId = document.getElementById('sessionPersonSelect')?.value || contact.id;
@@ -6337,6 +6342,19 @@
         if (!contact) return;
         const selected = state.contacts.find(c => c.id === this.selectedPersonId) || contact;
         openContactMail(selected.id, source);
+      },
+
+      renderQueue() {
+        const el = document.getElementById('sessionQueueList');
+        if (!el) return;
+        el.innerHTML = this.contacts.map((c, i) => {
+          const isActive = i === this.currentIdx;
+          return `<div onclick="SessionEngine.jumpTo(${i + 1})" style="padding:7px 10px;border-radius:6px;cursor:pointer;margin-bottom:3px;
+            background:${isActive ? 'rgba(245,158,11,.2)' : 'rgba(255,255,255,.04)'};
+            border-left:3px solid ${isActive ? 'var(--accent)' : 'transparent'};">
+            <div style="font-size:12px;font-weight:${isActive ? 700 : 400};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(c.firma || '–')}</div>
+          </div>`;
+        }).join('');
       }
     };
 
@@ -6412,6 +6430,11 @@
           getStatusLabel(contact.status || 'new');
         document.getElementById('vrSessionProgress').textContent =
           `${this.currentIdx + 1} / ${this.contacts.length}`;
+        // Progress bar fill
+        const _vrPct = this.contacts.length > 1 ? Math.round((this.currentIdx / (this.contacts.length - 1)) * 100) : 100;
+        const _vrFill = document.getElementById('vrSessionProgressFill');
+        if (_vrFill) _vrFill.style.width = _vrPct + '%';
+        this.renderQueue();
 
         const badge = document.getElementById('vrLinkedContactBadge');
         if (badge) badge.style.display = 'block';
@@ -6562,6 +6585,28 @@
         this.adHocMode = false;
         this.linkedContactId = null;
         this.updateInfo();
+      },
+
+      renderQueue() {
+        const el = document.getElementById('vrSessionQueueList');
+        if (!el) return;
+        el.innerHTML = this.contacts.map((c, i) => {
+          const isActive = i === this.currentIdx;
+          const name = (`${c.vorname || ''} ${c.nachname || ''}`).trim() || c.firma || '–';
+          return `<div onclick="VrSession.jumpTo(${i})" style="padding:7px 10px;border-radius:6px;cursor:pointer;margin-bottom:3px;
+            background:${isActive ? 'rgba(245,158,11,.2)' : 'rgba(255,255,255,.04)'};
+            border-left:3px solid ${isActive ? 'var(--accent)' : 'transparent'};">
+            <div style="font-size:12px;font-weight:${isActive ? 700 : 400};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(name)}</div>
+            ${c.firma ? `<div style="font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(c.firma)}</div>` : ''}
+          </div>`;
+        }).join('') || '<div style="color:var(--muted);font-size:11px;padding:4px 8px;">Ad-hoc Modus</div>';
+      },
+
+      jumpTo(i) {
+        if (i >= 0 && i < this.contacts.length) {
+          this.currentIdx = i;
+          this.loadCurrent();
+        }
       }
     };
 

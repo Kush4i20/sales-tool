@@ -453,100 +453,118 @@
             </div>
 
             <div id="activeSession" style="display: none; margin-top: 20px;">
-              <div class="contact-card" style="margin-bottom: 12px;">
+
+              <!-- Progress bar row -->
+              <div class="card" style="margin-bottom:12px;">
+                <div class="card-content" style="padding:10px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                  <button class="btn" id="btnSessionPrev" style="padding:4px 12px;">◀ Zurück</button>
+                  <span id="sessionProgress" style="font-weight:700;font-size:14px;min-width:70px;white-space:nowrap;">1 / 10</span>
+                  <div style="flex:1;height:6px;background:rgba(245,158,11,.2);border-radius:4px;overflow:hidden;min-width:60px;">
+                    <div id="sessionProgressFill" style="height:100%;background:var(--accent);border-radius:4px;transition:width .3s;width:0%;"></div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:4px;">
+                    <input type="number" id="sessionJumpInput" min="1" class="input-field"
+                      style="width:56px;padding:3px 6px;font-size:12px;text-align:center;" placeholder="Nr.">
+                    <button class="btn" id="btnSessionJump" style="padding:4px 10px;font-size:12px;">→ Go</button>
+                  </div>
+                  <button class="btn" id="btnSessionNext" style="padding:4px 12px;">Weiter ▶</button>
+                  <button class="btn" id="btnSkipContact" style="padding:4px 12px;">⏭ Skip</button>
+                  <button class="btn" id="btnEndSession" style="padding:4px 12px;">🏁 Beenden</button>
+                </div>
+              </div>
+
+              <!-- 2-column grid: queue list left + detail right -->
+              <div style="display:grid;grid-template-columns:220px 1fr;gap:16px;align-items:start;">
+
+                <!-- Queue list (left) -->
+                <div class="card" style="position:sticky;top:16px;">
+                  <div class="card-head"><h3 class="card-title" style="font-size:13px;">Warteschlange</h3></div>
+                  <div id="sessionQueueList" class="card-content" style="padding:8px;max-height:70vh;overflow-y:auto;"></div>
+                </div>
+
+                <!-- Detail (right) -->
                 <div>
-                  <div class="contact-name" id="sessionContactName">–</div>
-                  <div class="contact-company" id="sessionContactCompany">–</div>
-                </div>
-                <div class="contact-meta" id="sessionContactDetails">–</div>
-                <div>
-                  <span class="status-badge" id="sessionContactStatus">–</span>
-                </div>
-                <button class="btn" id="btnEditSessionContact">Kontakt bearbeiten</button>
-              </div>
-
-              <div id="sessionContactPerson" style="margin-bottom: 12px; display: none;">
-                <div class="card" style="margin-bottom: 0;">
-                  <div class="card-content">
-                    <div class="label">Ansprechperson in der Session</div>
-                    <div style="display: flex; gap: 8px; margin-bottom: 10px; align-items: end; flex-wrap: wrap;">
-                      <div style="flex: 1; min-width: 220px;">
-                        <label class="label">Kontaktperson</label>
-                        <select id="sessionPersonSelect" class="input-field"></select>
-                      </div>
-                      <button class="btn" id="btnSessionNewPerson" type="button">+ Neue Kontaktperson erfassen</button>
+                  <div class="contact-card" style="margin-bottom: 12px;">
+                    <div>
+                      <div class="contact-name" id="sessionContactName">–</div>
+                      <div class="contact-company" id="sessionContactCompany">–</div>
                     </div>
-                    <div id="sessionPersonFields">
-                    <div class="two-col">
-                      <div>
-                        <label class="label">Vorname</label>
-                        <input type="text" id="sessionPersonFirst" class="input-field" placeholder="Vorname">
-                      </div>
-                      <div>
-                        <label class="label">Nachname</label>
-                        <input type="text" id="sessionPersonLast" class="input-field" placeholder="Nachname">
-                      </div>
+                    <div class="contact-meta" id="sessionContactDetails">–</div>
+                    <div>
+                      <span class="status-badge" id="sessionContactStatus">–</span>
                     </div>
-                    <div class="two-col">
-                      <div>
-                        <label class="label">Telefon</label>
-                        <input type="tel" id="sessionPersonPhone" class="input-field" placeholder="+41 ...">
-                      </div>
-                      <div>
-                        <label class="label">Email</label>
-                        <input type="email" id="sessionPersonEmail" class="input-field" placeholder="mail@firma.ch">
-                      </div>
-                    </div>
-                    <label class="label">Rolle</label>
-                    <input type="text" id="sessionPersonRole" class="input-field" placeholder="z.B. Geschaeftsfuehrer">
-                    </div>
-                    <div class="hint">Session-Notizen werden auf Firmenebene gespeichert und mit der ausgewaehlten Kontaktperson gelabelt.</div>
-                  </div>
-                </div>
-              </div>
-
-              <div class="card" style="margin-bottom: 0;">
-                <div class="card-content">
-                  <div class="label">Ergebnis</div>
-                  <div id="sessionResultButtons" style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px;"></div>
-
-                  <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
-                    <span class="label" style="margin: 0;">Interesse</span>
-                    <div class="star-rating" id="sessionStarRating">
-                      <span class="star" data-star="1">★</span>
-                      <span class="star" data-star="2">★</span>
-                      <span class="star" data-star="3">★</span>
-                      <span class="star" data-star="4">★</span>
-                      <span class="star" data-star="5">★</span>
-                    </div>
-                    <span id="sessionStarLabel" style="font-size: 11px; color: var(--muted);">–</span>
-                    <input type="hidden" id="sessionRating" value="0">
+                    <button class="btn" id="btnEditSessionContact">Kontakt bearbeiten</button>
                   </div>
 
-                  <label class="label">Notizen</label>
-                  <textarea id="sessionNotes" class="input-field" placeholder="Notizen..." style="min-height: 90px;"></textarea>
-
-                  <div style="display: flex; gap: 8px; margin-top: 8px;">
-                    <button class="btn good" id="btnSaveAndNext">✅ Speichern & Nächster</button>
-                    <button class="btn" id="btnSkipContact">⏭ Überspringen</button>
-                    <button class="btn" id="btnSessionOpenMail" style="display:none;">✉️ Mail öffnen</button>
+                  <div id="sessionContactPerson" style="margin-bottom: 12px; display: none;">
+                    <div class="card" style="margin-bottom: 0;">
+                      <div class="card-content">
+                        <div class="label">Ansprechperson in der Session</div>
+                        <div style="display: flex; gap: 8px; margin-bottom: 10px; align-items: end; flex-wrap: wrap;">
+                          <div style="flex: 1; min-width: 220px;">
+                            <label class="label">Kontaktperson</label>
+                            <select id="sessionPersonSelect" class="input-field"></select>
+                          </div>
+                          <button class="btn" id="btnSessionNewPerson" type="button">+ Neue Kontaktperson erfassen</button>
+                        </div>
+                        <div id="sessionPersonFields">
+                          <div class="two-col">
+                            <div>
+                              <label class="label">Vorname</label>
+                              <input type="text" id="sessionPersonFirst" class="input-field" placeholder="Vorname">
+                            </div>
+                            <div>
+                              <label class="label">Nachname</label>
+                              <input type="text" id="sessionPersonLast" class="input-field" placeholder="Nachname">
+                            </div>
+                          </div>
+                          <div class="two-col">
+                            <div>
+                              <label class="label">Telefon</label>
+                              <input type="tel" id="sessionPersonPhone" class="input-field" placeholder="+41 ...">
+                            </div>
+                            <div>
+                              <label class="label">Email</label>
+                              <input type="email" id="sessionPersonEmail" class="input-field" placeholder="mail@firma.ch">
+                            </div>
+                          </div>
+                          <label class="label">Rolle</label>
+                          <input type="text" id="sessionPersonRole" class="input-field" placeholder="z.B. Geschaeftsfuehrer">
+                        </div>
+                        <div class="hint">Session-Notizen werden auf Firmenebene gespeichert und mit der ausgewaehlten Kontaktperson gelabelt.</div>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
 
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 12px; font-size: 12px; color: var(--muted); gap: 6px; flex-wrap: wrap;">
-                <button class="btn" id="btnSessionPrev">← Zurück</button>
-                <span id="sessionProgress" style="white-space: nowrap;">1 / 10</span>
-                <div style="display:flex; align-items:center; gap:4px;">
-                  <label style="font-size:11px; color:var(--muted); white-space:nowrap;"># Sprung:</label>
-                  <input type="number" id="sessionJumpInput" min="1" class="input-field"
-                    style="width:64px; padding:3px 6px; font-size:12px; text-align:center;"
-                    placeholder="Nr.">
-                  <button class="btn" id="btnSessionJump" style="padding:4px 10px; font-size:12px;">→ Go</button>
-                </div>
-                <button class="btn" id="btnSessionNext">Weiter →</button>
-                <button class="btn" id="btnEndSession">🏁 Beenden</button>
-              </div>
+                  <div class="card" style="margin-bottom: 0;">
+                    <div class="card-content">
+                      <div class="label">Ergebnis</div>
+                      <div id="sessionResultButtons" style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px;"></div>
+
+                      <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                        <span class="label" style="margin: 0;">Interesse</span>
+                        <div class="star-rating" id="sessionStarRating">
+                          <span class="star" data-star="1">★</span>
+                          <span class="star" data-star="2">★</span>
+                          <span class="star" data-star="3">★</span>
+                          <span class="star" data-star="4">★</span>
+                          <span class="star" data-star="5">★</span>
+                        </div>
+                        <span id="sessionStarLabel" style="font-size: 11px; color: var(--muted);">–</span>
+                        <input type="hidden" id="sessionRating" value="0">
+                      </div>
+
+                      <label class="label">Notizen</label>
+                      <textarea id="sessionNotes" class="input-field" placeholder="Notizen..." style="min-height: 90px;"></textarea>
+
+                      <div style="display: flex; gap: 8px; margin-top: 8px;">
+                        <button class="btn good" id="btnSaveAndNext">✅ Speichern & Nächster</button>
+                        <button class="btn" id="btnSessionOpenMail" style="display:none;">✉️ Mail öffnen</button>
+                      </div>
+                    </div>
+                  </div>
+                </div><!-- /detail right -->
+              </div><!-- /2-column grid -->
             </div>
           </div>
         </div>
@@ -571,79 +589,99 @@
               </div>
 
               <div id="vrActiveSession" style="display:none;">
-                <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:8px;">
-                  <input type="text" id="vrContactSearch" class="input-field" placeholder="🔍 Kontakt suchen (Name, Firma, E-Mail)…" style="flex:1; min-width:160px; margin:0;" oninput="vrSearchContacts(this.value)">
-                  <button class="btn" type="button" onclick="vrClearContact()">✕ Leeren</button>
-                </div>
-                <div id="vrContactSearchResults" style="display:none; border:1px solid var(--line); border-radius:8px; background:var(--card); max-height:180px; overflow-y:auto; margin-bottom:8px; font-size:12px;"></div>
 
-                <div id="vrLinkedContactBadge" style="display:none; background:var(--accent-soft); border-radius:8px; padding:7px 12px; margin-bottom:10px;">
-                  <div class="contact-name" id="vrSessionContactName" style="font-size:13px;">–</div>
-                  <div id="vrSessionContactCompany" style="color:var(--muted); font-size:11px;">–</div>
-                  <div id="vrSessionContactMeta" style="color:var(--muted); font-size:11px; margin-top:2px;">–</div>
-                  <span class="status-badge" id="vrSessionContactStatus" style="margin-top:4px; display:inline-block;">–</span>
-                </div>
-
+                <!-- Progress bar row -->
                 <div class="card" style="margin-bottom:12px;">
-                  <div class="card-content">
-                    <div class="label" style="font-weight:700; margin-bottom:8px;">Kontakt- &amp; Projektdaten</div>
-                    <div style="display:flex; gap:6px; margin-bottom:8px;">
-                      <button class="btn active" id="vrSAnredeHerr" onclick="vrSSetAnrede('Herr')">Herr</button>
-                      <button class="btn" id="vrSAnredeFrau" onclick="vrSSetAnrede('Frau')">Frau</button>
+                  <div class="card-content" style="padding:10px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                    <button class="btn" id="btnVrSessionPrev" style="padding:4px 12px;">◀ Zurück</button>
+                    <span id="vrSessionProgress" style="font-weight:700;font-size:14px;min-width:60px;white-space:nowrap;">1 / 1</span>
+                    <div style="flex:1;height:6px;background:rgba(245,158,11,.2);border-radius:4px;overflow:hidden;min-width:60px;">
+                      <div id="vrSessionProgressFill" style="height:100%;background:var(--accent);border-radius:4px;transition:width .3s;width:0%;"></div>
                     </div>
-                    <div class="two-col">
-                      <div><label class="label">Vorname</label><input type="text" id="vrSVorname" class="input-field" placeholder="Vorname" oninput="renderVrSessionPreview()"></div>
-                      <div><label class="label">Nachname</label><input type="text" id="vrSNachname" class="input-field" placeholder="Nachname" oninput="renderVrSessionPreview()"></div>
+                    <button class="btn" id="btnVrSessionNext" style="padding:4px 12px;">Weiter ▶</button>
+                    <button class="btn" id="btnVrSkip" style="padding:4px 12px;">⏭ Skip</button>
+                    <button class="btn" id="btnVrEndSession" style="padding:4px 12px;">🏁 Beenden</button>
+                  </div>
+                </div>
+
+                <!-- 2-column grid: queue list left + detail right -->
+                <div style="display:grid;grid-template-columns:220px 1fr;gap:16px;align-items:start;">
+
+                  <!-- Queue list (left) -->
+                  <div class="card" style="position:sticky;top:16px;">
+                    <div class="card-head"><h3 class="card-title" style="font-size:13px;">Warteschlange</h3></div>
+                    <div id="vrSessionQueueList" class="card-content" style="padding:8px;max-height:70vh;overflow-y:auto;"></div>
+                  </div>
+
+                  <!-- Detail (right) -->
+                  <div>
+                    <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:8px;">
+                      <input type="text" id="vrContactSearch" class="input-field" placeholder="🔍 Kontakt suchen (Name, Firma, E-Mail)…" style="flex:1; min-width:160px; margin:0;" oninput="vrSearchContacts(this.value)">
+                      <button class="btn" type="button" onclick="vrClearContact()">✕ Leeren</button>
                     </div>
-                    <label class="label">Firma</label>
-                    <input type="text" id="vrSFirma" class="input-field" placeholder="Firma">
-                    <div class="two-col">
-                      <div><label class="label">E-Mail</label><input type="email" id="vrSEmail" class="input-field" placeholder="mail@firma.ch"></div>
-                      <div><label class="label">Telefon</label><input type="tel" id="vrSTelefon" class="input-field" placeholder="+41 …"></div>
+                    <div id="vrContactSearchResults" style="display:none; border:1px solid var(--line); border-radius:8px; background:var(--card); max-height:180px; overflow-y:auto; margin-bottom:8px; font-size:12px;"></div>
+
+                    <div id="vrLinkedContactBadge" style="display:none; background:var(--accent-soft); border-radius:8px; padding:7px 12px; margin-bottom:10px;">
+                      <div class="contact-name" id="vrSessionContactName" style="font-size:13px;">–</div>
+                      <div id="vrSessionContactCompany" style="color:var(--muted); font-size:11px;">–</div>
+                      <div id="vrSessionContactMeta" style="color:var(--muted); font-size:11px; margin-top:2px;">–</div>
+                      <span class="status-badge" id="vrSessionContactStatus" style="margin-top:4px; display:inline-block;">–</span>
                     </div>
-                    <div class="two-col">
-                      <div><label class="label">Projektname</label><input type="text" id="vrSProjekt" class="input-field" placeholder="z.B. Residenz am Park" oninput="renderVrSessionPreview()"></div>
-                      <div><label class="label">Wohnungsname</label><input type="text" id="vrSWohnung" class="input-field" placeholder="z.B. Wohnung A1.02" oninput="renderVrSessionPreview()"></div>
-                    </div>
-                    <div class="two-col">
-                      <div><label class="label">Punkte (360°-Bilder)</label><input type="number" id="vrSPunkte" class="input-field" min="1" value="1" oninput="renderVrSessionPreview()"></div>
-                      <div><label class="label">Variante</label>
-                        <select id="vrSVariante" class="input-field" onchange="renderVrSessionPreview()">
-                          <option value="web">Projektwebseite</option>
-                          <option value="web_grundriss">Projektwebseite + Grundriss</option>
-                          <option value="portal">Portal</option>
-                          <option value="portal_grundriss">Portal + Grundriss</option>
-                        </select>
+
+                    <div class="card" style="margin-bottom:12px;">
+                      <div class="card-content">
+                        <div class="label" style="font-weight:700; margin-bottom:8px;">Kontakt- &amp; Projektdaten</div>
+                        <div style="display:flex; gap:6px; margin-bottom:8px;">
+                          <button class="btn active" id="vrSAnredeHerr" onclick="vrSSetAnrede('Herr')">Herr</button>
+                          <button class="btn" id="vrSAnredeFrau" onclick="vrSSetAnrede('Frau')">Frau</button>
+                        </div>
+                        <div class="two-col">
+                          <div><label class="label">Vorname</label><input type="text" id="vrSVorname" class="input-field" placeholder="Vorname" oninput="renderVrSessionPreview()"></div>
+                          <div><label class="label">Nachname</label><input type="text" id="vrSNachname" class="input-field" placeholder="Nachname" oninput="renderVrSessionPreview()"></div>
+                        </div>
+                        <label class="label">Firma</label>
+                        <input type="text" id="vrSFirma" class="input-field" placeholder="Firma">
+                        <div class="two-col">
+                          <div><label class="label">E-Mail</label><input type="email" id="vrSEmail" class="input-field" placeholder="mail@firma.ch"></div>
+                          <div><label class="label">Telefon</label><input type="tel" id="vrSTelefon" class="input-field" placeholder="+41 …"></div>
+                        </div>
+                        <div class="two-col">
+                          <div><label class="label">Projektname</label><input type="text" id="vrSProjekt" class="input-field" placeholder="z.B. Residenz am Park" oninput="renderVrSessionPreview()"></div>
+                          <div><label class="label">Wohnungsname</label><input type="text" id="vrSWohnung" class="input-field" placeholder="z.B. Wohnung A1.02" oninput="renderVrSessionPreview()"></div>
+                        </div>
+                        <div class="two-col">
+                          <div><label class="label">Punkte (360°-Bilder)</label><input type="number" id="vrSPunkte" class="input-field" min="1" value="1" oninput="renderVrSessionPreview()"></div>
+                          <div><label class="label">Variante</label>
+                            <select id="vrSVariante" class="input-field" onchange="renderVrSessionPreview()">
+                              <option value="web">Projektwebseite</option>
+                              <option value="web_grundriss">Projektwebseite + Grundriss</option>
+                              <option value="portal">Portal</option>
+                              <option value="portal_grundriss">Portal + Grundriss</option>
+                            </select>
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </div>
 
-                <div class="card" style="margin-bottom:12px;">
-                  <div class="card-content">
-                    <div class="label" style="font-weight:700; margin-bottom:8px;">Mail-Vorschau</div>
-                    <div id="vrSPreviewSubject" style="font-size:12px; font-weight:700; color:var(--accent); margin-bottom:6px;"></div>
-                    <div id="vrSPreviewBody" style="font-size:11px; white-space:pre-wrap; background:rgba(0,0,0,.03); border:1px solid var(--line); border-radius:8px; padding:10px; max-height:220px; overflow-y:auto; font-family:monospace; line-height:1.6;"></div>
-                    <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;">
-                      <button class="btn primary" onclick="sendVrSessionMail()" style="flex:1;">📤 Mail senden (Outlook)</button>
-                      <button class="btn" onclick="copyVrSessionMail()">📋 Kopieren</button>
+                    <div class="card" style="margin-bottom:12px;">
+                      <div class="card-content">
+                        <div class="label" style="font-weight:700; margin-bottom:8px;">Mail-Vorschau</div>
+                        <div id="vrSPreviewSubject" style="font-size:12px; font-weight:700; color:var(--accent); margin-bottom:6px;"></div>
+                        <div id="vrSPreviewBody" style="font-size:11px; white-space:pre-wrap; background:rgba(0,0,0,.03); border:1px solid var(--line); border-radius:8px; padding:10px; max-height:220px; overflow-y:auto; font-family:monospace; line-height:1.6;"></div>
+                        <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;">
+                          <button class="btn primary" onclick="sendVrSessionMail()" style="flex:1;">📤 Mail senden (Outlook)</button>
+                          <button class="btn" onclick="copyVrSessionMail()">📋 Kopieren</button>
+                        </div>
+                        <label class="label" style="margin-top:10px;">Notiz (optional)</label>
+                        <textarea id="vrSNotes" class="input-field" placeholder="z.B. Mail gesendet, Follow-up geplant…" style="min-height:50px;"></textarea>
+                      </div>
                     </div>
-                    <label class="label" style="margin-top:10px;">Notiz (optional)</label>
-                    <textarea id="vrSNotes" class="input-field" placeholder="z.B. Mail gesendet, Follow-up geplant…" style="min-height:50px;"></textarea>
-                  </div>
-                </div>
 
-                <div style="display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap;">
-                  <button class="btn good" id="btnVrSaveAndNext" style="flex:1;">✅ Gesendet &amp; Nächster</button>
-                  <button class="btn" id="btnVrSkip">⏭ Überspringen</button>
-                </div>
-
-                <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--muted);">
-                  <button class="btn" id="btnVrSessionPrev">← Zurück</button>
-                  <span id="vrSessionProgress">1 / 1</span>
-                  <button class="btn" id="btnVrSessionNext">Weiter →</button>
-                  <button class="btn" id="btnVrEndSession">🏁 Beenden</button>
-                </div>
+                    <div style="display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap;">
+                      <button class="btn good" id="btnVrSaveAndNext" style="flex:1;">✅ Gesendet &amp; Nächster</button>
+                    </div>
+                  </div><!-- /detail right -->
+                </div><!-- /2-column grid -->
               </div>
             </div>
           </div>

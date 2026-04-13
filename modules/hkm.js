@@ -29,6 +29,8 @@ const HKM_PAKETE = [
   'Sonstiges'
 ];
 
+const HKM_VISUMAT_PAKETE = ['Basis', 'Plus', 'Pro', 'Enterprise'];
+
 const HKM_ABSAGE_KATEGORIEN = [
   { value: 'zu_teuer',           label: 'Zu teuer'            },
   { value: 'kein_bedarf',        label: 'Kein Bedarf'         },
@@ -691,6 +693,13 @@ function hkmToggleActivityFields(type) {
   document.getElementById('hkmFieldsDemo').style.display   = type === 'demo'                               ? 'block' : 'none';
   document.getElementById('hkmFieldsDeal').style.display   = (type === 'deal' || type === 'produkt' || type === 'visumat') ? 'block' : 'none';
   document.getElementById('hkmFieldsAbsage').style.display = type === 'absage'                             ? 'block' : 'none';
+  // Repopulate paket options based on type
+  if (type === 'produkt' || type === 'visumat') {
+    const pakete = type === 'visumat' ? HKM_VISUMAT_PAKETE : HKM_PAKETE;
+    const sel = document.getElementById('hkmActivityPaketName');
+    if (sel) sel.innerHTML = '<option value="">Paket wählen...</option>' +
+      pakete.map(p => `<option value="${p}">${p}</option>`).join('');
+  }
 }
 
 // Session-tab inline form field toggle (parallel to hkmToggleActivityFields)
@@ -700,6 +709,13 @@ function hkmSessToggleFields(type) {
   show('hkmSessFieldsDemo',  type === 'demo');
   show('hkmSessFieldsDeal',  type === 'produkt' || type === 'visumat');
   show('hkmSessFieldsAbsage', type === 'absage');
+  // Repopulate paket options based on type
+  if (type === 'produkt' || type === 'visumat') {
+    const pakete = type === 'visumat' ? HKM_VISUMAT_PAKETE : HKM_PAKETE;
+    const sel = document.getElementById('hkmSessPaketName');
+    if (sel) sel.innerHTML = '<option value="">Paket wählen...</option>' +
+      pakete.map(p => `<option value="${p}">${p}</option>`).join('');
+  }
 }
 
 async function saveHkmActivityFromModal() {
@@ -2014,8 +2030,12 @@ window.hkmImportLeads = async function() {
 
   try {
     if (name.endsWith('.csv') || name.endsWith('.txt') || name.endsWith('.tsv')) {
-      const text = await file.text();
-      const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/).filter(l => l.trim());
+      const buf = await file.arrayBuffer();
+      // Try UTF-8 first; if replacement chars appear fall back to Windows-1252 (German Excel default)
+      let text = new TextDecoder('utf-8', { fatal: false }).decode(buf);
+      if (text.includes('\uFFFD')) text = new TextDecoder('windows-1252').decode(buf);
+      text = text.replace(/^\uFEFF/, ''); // strip BOM
+      const lines = text.split(/\r?\n/).filter(l => l.trim());
       const delim = text.includes(';') ? ';' : (text.includes('\t') ? '\t' : ',');
       const parsed = lines.map(l => l.split(delim).map(c => c.replace(/^"|"$/g,'').trim()));
       headers = parsed[0];
