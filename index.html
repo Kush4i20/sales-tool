@@ -2197,6 +2197,28 @@
         </div>
       </div>
 
+      <!-- Multi-Project Merge Modal -->
+      <div id="hkmMultiProjectModal" class="modal" style="display:none;">
+        <div class="modal-content" style="max-width:720px;">
+          <div class="modal-header">
+            <h2>📦 Mehrere Projekte pro Firma</h2>
+            <button onclick="hkmCancelMultiProject()" class="modal-close">✕</button>
+          </div>
+          <div class="modal-body">
+            <p id="hkmMpSummary" style="margin-bottom:12px;font-size:13px;"></p>
+            <div style="font-size:12px;color:var(--muted);background:rgba(245,158,11,.08);border-radius:8px;padding:10px 12px;margin-bottom:14px;line-height:1.6;">
+              <strong>✅ Aktiviert</strong> = ein Lead pro Firma, alle Projektinfos in Notizen zusammengefasst<br>
+              <strong>☐ Deaktiviert</strong> = separate Leads für jedes Projekt (wie normal)
+            </div>
+            <div id="hkmMpGroupsList" style="max-height:50vh;overflow-y:auto;"></div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn" onclick="hkmCancelMultiProject()">Abbrechen</button>
+            <button class="btn primary" onclick="hkmConfirmMultiProject()">Weiter →</button>
+          </div>
+        </div>
+      </div>
+
       <!-- Challenge Modal -->
       <div id="hkmChallengeModal" class="modal" style="display:none;">
         <div class="modal-content" style="max-width:480px;">

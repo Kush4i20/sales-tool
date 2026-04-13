@@ -2086,31 +2086,115 @@ window.hkmImportLeads = async function() {
     return;
   }
 
-  // Duplicate detection: key = lowercase(projektname+firma)
+  // Step 1: Multi-project detection — group by firma, find firms with >1 lead in import
+  const firmaGroupMap = new Map();
+  mapped_leads.forEach(l => {
+    const key = (l.firma || '').toLowerCase().trim();
+    if (!key) return;
+    if (!firmaGroupMap.has(key)) firmaGroupMap.set(key, []);
+    firmaGroupMap.get(key).push(l);
+  });
+  const multiGroups = [...firmaGroupMap.values()].filter(g => g.length > 1);
+  const groupedFirmaKeys = new Set(multiGroups.flat().map(l => (l.firma||'').toLowerCase().trim()));
+  const soloLeads = mapped_leads.filter(l => !groupedFirmaKeys.has((l.firma||'').toLowerCase().trim()));
+
+  if (multiGroups.length > 0) {
+    _hkmPendingImport = { soloLeads, multiGroups, resultEl, fileInput, parseSkipped };
+    hkmShowMultiProjectModal(multiGroups);
+  } else {
+    await hkmRunDupeCheck(mapped_leads, resultEl, fileInput, parseSkipped);
+  }
+};
+
+// ── Multi-project merge ────────────────────────────────────────────────────
+
+function hkmMergeProjectGroup(leads) {
+  const first = leads[0];
+  const projNotes = leads.map((l, i) => {
+    const parts = [
+      `Projekt: ${l.projektname || '(kein Name)'}`,
+      l.kontaktperson && `Kontakt: ${l.kontaktperson}`,
+      l.telefon        && `Tel: ${l.telefon}`,
+      l.email          && `Email: ${l.email}`,
+      l.url            && `URL: ${l.url}`,
+      l.region         && `Region: ${l.region}`,
+      l.notizen        && `Notiz: ${l.notizen}`,
+    ].filter(Boolean).join(' · ');
+    return `[${i + 1}] ${parts}`;
+  }).join('\n');
+  return { ...first, projektname: first.projektname || first.firma, notizen: `${leads.length} Projekte:\n${projNotes}` };
+}
+
+function hkmShowMultiProjectModal(groups) {
+  const modal = document.getElementById('hkmMultiProjectModal');
+  if (!modal) { console.warn('hkmMultiProjectModal not found'); return; }
+  document.getElementById('hkmMpSummary').innerHTML =
+    `<strong>${groups.length}</strong> Firma${groups.length !== 1 ? 'en haben' : ' hat'} mehrere Projekte in der Importdatei. Zusammenführen empfohlen.`;
+  document.getElementById('hkmMpGroupsList').innerHTML = groups.map((leads, i) => {
+    const firma = leads[0].firma || '–';
+    const projList = leads.map(l => `<li style="margin-bottom:4px;">
+      <strong>${escapeHtml(l.projektname || '–')}</strong>
+      ${l.kontaktperson ? ` · ${escapeHtml(l.kontaktperson)}` : ''}
+      ${l.email         ? ` · <span style="color:var(--muted)">${escapeHtml(l.email)}</span>` : ''}
+      ${l.url           ? ` · <a href="${escapeHtml(l.url)}" target="_blank" style="color:var(--accent);font-size:11px;">${escapeHtml(l.url.length > 40 ? l.url.slice(0,37)+'…' : l.url)}</a>` : ''}
+    </li>`).join('');
+    return `<div style="border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin-bottom:10px;">
+      <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;">
+        <input type="checkbox" id="hkmMpGroup_${i}" checked style="margin-top:4px;flex-shrink:0;width:16px;height:16px;">
+        <div style="flex:1;">
+          <div style="font-weight:700;font-size:13px;margin-bottom:6px;">🏢 ${escapeHtml(firma)}
+            <span style="font-weight:400;color:var(--muted);font-size:12px;margin-left:6px;">${leads.length} Projekte → 1 Lead</span></div>
+          <ul style="margin:0;padding-left:16px;font-size:12px;color:var(--muted);">${projList}</ul>
+        </div>
+      </label>
+    </div>`;
+  }).join('');
+  modal.style.display = 'flex';
+}
+
+window.hkmCancelMultiProject = function() {
+  document.getElementById('hkmMultiProjectModal').style.display = 'none';
+  _hkmPendingImport = null;
+};
+
+window.hkmConfirmMultiProject = async function() {
+  if (!_hkmPendingImport) return;
+  const { soloLeads, multiGroups, resultEl, fileInput, parseSkipped } = _hkmPendingImport;
+  const resolved = [...soloLeads];
+  multiGroups.forEach((group, i) => {
+    const cb = document.getElementById(`hkmMpGroup_${i}`);
+    if (cb?.checked) resolved.push(hkmMergeProjectGroup(group));
+    else resolved.push(...group);
+  });
+  document.getElementById('hkmMultiProjectModal').style.display = 'none';
+  _hkmPendingImport = null;
+  await hkmRunDupeCheck(resolved, resultEl, fileInput, parseSkipped);
+};
+
+// ── Duplicate detection ────────────────────────────────────────────────────
+
+async function hkmRunDupeCheck(leads, resultEl, fileInput, parseSkipped) {
   const existingMap = new Map();
   (state.hkmLeads || []).forEach(l => {
     const key = ((l.projektname||'') + '|' + (l.firma||'')).toLowerCase().trim();
     if (key && key !== '|') existingMap.set(key, l);
   });
-
   const clean = [], dupes = [];
-  mapped_leads.forEach(l => {
+  leads.forEach(l => {
     const key = ((l.projektname||'') + '|' + (l.firma||'')).toLowerCase().trim();
     const existing = existingMap.get(key);
     if (existing) dupes.push({ incoming: l, existing });
     else clean.push(l);
   });
-
   if (dupes.length > 0) {
-    // Show duplicate preview modal
-    _hkmPendingImport = { clean, dupes, assignTo, resultEl, fileInput, batchId };
-    hkmShowDupesModal(clean.length, dupes, parseSkipped);
+    _hkmPendingImport = { clean, dupes, resultEl, fileInput, parseSkipped };
+    hkmShowDupesModal(clean.length, dupes);
   } else {
     await hkmExecuteImport(clean, [], resultEl, fileInput, parseSkipped);
   }
-};
+}
 
-function hkmShowDupesModal(cleanCount, dupes, parseSkipped) {
+function hkmShowDupesModal(cleanCount, dupes) {
   const modal = document.getElementById('hkmImportDupesModal');
   if (!modal) { console.warn('hkmImportDupesModal not found'); return; }
   document.getElementById('hkmDupeSummary').innerHTML =
@@ -2120,9 +2204,9 @@ function hkmShowDupesModal(cleanCount, dupes, parseSkipped) {
   tbody.innerHTML = dupes.map((d, i) => `
     <tr>
       <td><input type="checkbox" id="hkmDupe_${i}" data-idx="${i}"></td>
-      <td style="font-size:12px;"><strong>${d.incoming.projektname||'–'}</strong><br><span style="color:var(--muted)">${d.incoming.firma||''}</span></td>
-      <td style="font-size:12px;">${d.incoming.kontaktperson||'–'}</td>
-      <td style="font-size:11px;color:#f59e0b;">⚠️ Bereits vorhanden:<br>${d.existing.projektname||d.existing.firma||'–'}</td>
+      <td style="font-size:12px;"><strong>${escapeHtml(d.incoming.projektname||'–')}</strong><br><span style="color:var(--muted)">${escapeHtml(d.incoming.firma||'')}</span></td>
+      <td style="font-size:12px;">${escapeHtml(d.incoming.kontaktperson||'–')}</td>
+      <td style="font-size:11px;color:#f59e0b;">⚠️ Bereits vorhanden:<br>${escapeHtml(d.existing.projektname||d.existing.firma||'–')}</td>
     </tr>`).join('');
   modal.style.display = 'flex';
 }
@@ -2134,15 +2218,10 @@ window.hkmCancelImport = function() {
 
 window.hkmConfirmImport = async function() {
   if (!_hkmPendingImport) return;
-  const { clean, dupes, resultEl, fileInput, batchId } = _hkmPendingImport;
-  // Collect checked dupes
-  const checkedDupes = dupes.filter((_, i) => {
-    const cb = document.getElementById(`hkmDupe_${i}`);
-    return cb?.checked;
-  }).map(d => d.incoming);
+  const { clean, dupes, resultEl, fileInput, parseSkipped } = _hkmPendingImport;
+  const checkedDupes = dupes.filter((_, i) => document.getElementById(`hkmDupe_${i}`)?.checked).map(d => d.incoming);
   document.getElementById('hkmImportDupesModal').style.display = 'none';
   _hkmPendingImport = null;
-  const parseSkipped = 0;
   await hkmExecuteImport(clean, checkedDupes, resultEl, fileInput, parseSkipped);
 };
 
@@ -2209,12 +2288,12 @@ document.addEventListener('DOMContentLoaded', function() {
   if (analyticsApply) analyticsApply.addEventListener('click', renderHkmAnalytics);
 
   // Click outside modal to close
-  ['hkmLeadModal', 'hkmLeadDetailModal', 'hkmActivityModal', 'hkmTransferModal', 'hkmImportDupesModal'].forEach(id => {
+  ['hkmLeadModal', 'hkmLeadDetailModal', 'hkmActivityModal', 'hkmTransferModal', 'hkmImportDupesModal', 'hkmMultiProjectModal'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.addEventListener('click', e => {
       if (e.target === el) {
         el.style.display = 'none';
-        if (id === 'hkmImportDupesModal') _hkmPendingImport = null;
+        if (id === 'hkmImportDupesModal' || id === 'hkmMultiProjectModal') _hkmPendingImport = null;
       }
     });
   });
