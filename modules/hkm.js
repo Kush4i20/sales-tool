@@ -2227,29 +2227,56 @@ window.hkmConfirmImport = async function() {
 
 // ── CRM contact cross-reference ───────────────────────────────────────────────
 
+function _hkmNormFirma(name) {
+  return (name || '').toLowerCase()
+    .replace(/\b(ag|gmbh|kg|gmbh\s*&\s*co|co\.|s\.a\.|sagl|ltd|inc|llc|und|&)\b/gi, '')
+    .replace(/[^\wäöüß\s]/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function _hkmFirmaScore(a, b) {
+  const na = _hkmNormFirma(a);
+  const nb = _hkmNormFirma(b);
+  if (!na || !nb) return 0;
+  if (na === nb) return 1.0;
+  if (na.includes(nb) || nb.includes(na)) return 0.85;
+  const tokA = new Set(na.split(/\s+/).filter(t => t.length > 2));
+  const tokB = new Set(nb.split(/\s+/).filter(t => t.length > 2));
+  if (tokA.size === 0 || tokB.size === 0) return 0;
+  const inter = [...tokA].filter(t => tokB.has(t)).length;
+  const union = new Set([...tokA, ...tokB]).size;
+  return inter / union; // Jaccard
+}
+
 async function hkmRunCrmCrossCheck(leads, resultEl, fileInput, parseSkipped) {
   const contacts = state.contacts || [];
   const byEmail = new Map();
-  const byFirma = new Map();
   contacts.forEach(c => {
     if (c.email) byEmail.set(c.email.toLowerCase().trim(), c);
-    if (c.firma) {
-      const key = c.firma.toLowerCase().trim();
-      if (!byFirma.has(key)) byFirma.set(key, c);
-    }
   });
 
   const matched = [];
   leads.forEach(l => {
-    let contact = null, matchType = null;
-    if (l.email && byEmail.has(l.email.toLowerCase().trim())) {
-      contact = byEmail.get(l.email.toLowerCase().trim());
-      matchType = 'E-Mail';
-    } else if (l.firma && byFirma.has(l.firma.toLowerCase().trim())) {
-      contact = byFirma.get(l.firma.toLowerCase().trim());
-      matchType = 'Firma';
+    // 1. Email — exact, high confidence
+    if (l.email) {
+      const c = byEmail.get(l.email.toLowerCase().trim());
+      if (c) { matched.push({ lead: l, contact: c, matchType: 'E-Mail', confident: true }); return; }
     }
-    if (contact) matched.push({ lead: l, contact, matchType });
+    // 2. Firma — fuzzy score
+    if (l.firma) {
+      let best = null, bestScore = 0;
+      contacts.forEach(c => {
+        if (!c.firma) return;
+        const score = _hkmFirmaScore(l.firma, c.firma);
+        if (score > bestScore) { bestScore = score; best = c; }
+      });
+      if (bestScore >= 1.0) {
+        matched.push({ lead: l, contact: best, matchType: 'Firma (exakt)', confident: true });
+      } else if (bestScore >= 0.5) {
+        matched.push({ lead: l, contact: best, matchType: `Firma (${Math.round(bestScore * 100)}% ähnlich)`, confident: false });
+      }
+    }
   });
 
   if (matched.length > 0) {
@@ -2263,17 +2290,22 @@ async function hkmRunCrmCrossCheck(leads, resultEl, fileInput, parseSkipped) {
 function hkmShowCrmCrossModal(matched, unmatchedCount) {
   const modal = document.getElementById('hkmCrmCrossModal');
   if (!modal) { console.warn('hkmCrmCrossModal not found'); return; }
+  const fuzzyCount = matched.filter(m => !m.confident).length;
   document.getElementById('hkmCrmCrossSummary').innerHTML =
     `<strong>${matched.length}</strong> Import-Lead${matched.length !== 1 ? 's' : ''} ${matched.length !== 1 ? 'passen' : 'passt'} zu bestehenden CRM-Kontakten.`
-    + (unmatchedCount > 0 ? ` <span style="color:var(--muted)">(+ ${unmatchedCount} neue Leads ohne Match)</span>` : '');
+    + (fuzzyCount > 0 ? ` <span style="color:#f59e0b;font-weight:700;">${fuzzyCount} ähnliche Treffer bitte prüfen.</span>` : '')
+    + (unmatchedCount > 0 ? ` <span style="color:var(--muted)">(+ ${unmatchedCount} ohne Match)</span>` : '');
   document.getElementById('hkmCrmCrossBody').innerHTML = matched.map((m, i) => {
     const c = m.contact;
     const cName = [c.vorname, c.nachname].filter(Boolean).join(' ') || c.firma || '–';
     const statusLabels = { new:'Neu', call:'Anruf', won:'Gewonnen', lost:'Verloren', vrmail_gesendet:'VR Mail', vrtoday:'VR Heute' };
     const cStatus = statusLabels[c.status] || c.status || '–';
-    return `<tr>
+    const badgeStyle = m.confident
+      ? 'background:rgba(59,130,246,.12);color:#3b82f6;'
+      : 'background:rgba(245,158,11,.12);color:#f59e0b;';
+    return `<tr style="${!m.confident ? 'background:rgba(245,158,11,.04);' : ''}">
       <td onclick="event.stopPropagation()">
-        <input type="checkbox" id="hkmCrm_${i}" checked>
+        <input type="checkbox" id="hkmCrm_${i}" ${m.confident ? 'checked' : ''}>
       </td>
       <td style="font-size:12px;">
         <strong>${escapeHtml(m.lead.projektname || '–')}</strong><br>
@@ -2285,7 +2317,7 @@ function hkmShowCrmCrossModal(matched, unmatchedCount) {
         ${c.email ? `<br><span style="color:var(--muted);font-size:11px;">${escapeHtml(c.email)}</span>` : ''}
       </td>
       <td style="font-size:11px;">
-        <span style="background:rgba(59,130,246,.12);color:#3b82f6;padding:2px 7px;border-radius:999px;font-weight:700;">${escapeHtml(m.matchType)}</span>
+        <span style="padding:2px 7px;border-radius:999px;font-weight:700;${badgeStyle}">${escapeHtml(m.matchType)}</span>
       </td>
     </tr>`;
   }).join('');
