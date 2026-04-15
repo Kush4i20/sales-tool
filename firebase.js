@@ -774,9 +774,27 @@ onAuthStateChanged(auth, async (user) => {
       onValue(ref(db, `orgs/${orgId}/tasks`),
         makeSyncHandler(`orgs/${orgId}/tasks`, 'phtasks', 'tasks', [
           () => renderTasks?.(),
-          () => { if (state.tasksTab === 'analytics') renderTasksAnalytics?.(); }
+          () => { if (state.tasksTab === 'analytics') renderTasksAnalytics?.(); },
+          () => renderBoardKanban?.(),
+          () => renderDashboardBoards?.()
         ]).handler,
         (e) => console.error('Firebase tasks error:', e));
+
+      // boards
+      onValue(ref(db, `orgs/${orgId}/boards`),
+        makeSyncHandler(`orgs/${orgId}/boards`, 'phboards', 'boards', [
+          () => renderBoards?.(),
+          () => renderBoardKanban?.(),
+          () => renderDashboardBoards?.()
+        ]).handler,
+        (e) => console.error('Firebase boards error:', e));
+
+      // checklistTemplates
+      onValue(ref(db, `orgs/${orgId}/checklistTemplates`),
+        makeSyncHandler(`orgs/${orgId}/checklistTemplates`, 'phChecklistTemplates', 'checklistTemplates', [
+          () => renderTemplatesList_Checklist?.()
+        ]).handler,
+        (e) => console.error('Firebase checklistTemplates error:', e));
 
       // liSnapshots
       onValue(ref(db, `orgs/${orgId}/liSnapshots`), (snapshot) => {

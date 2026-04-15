@@ -49,6 +49,17 @@
       analyticsModule: 'all',
       tasksTab: 'list',
       tasks: [],
+      boards: [],
+      checklistTemplates: [],
+      taskListShowCompleted: false,
+      taskListSortBy: 'faelligkeit',
+      taskFilterDateFrom: '',
+      taskFilterDateTo: '',
+      taskFilterBoard: 'all',
+      activeBoardId: null,
+      boardsSubView: 'list',
+      _modalSubtasks: [],
+      _cltItems: [],
       liTracking: { profile: 'company' },
       liSnapshots: [],
       liPosts: [],
@@ -191,6 +202,15 @@
       if (currentUser) syncToFirebase('tasks', state.tasks);
     }
 
+    function saveBoards() {
+      localStorage.setItem('phboards', JSON.stringify(state.boards));
+      if (currentUser) syncToFirebase('boards', state.boards);
+    }
+    function saveChecklistTemplates() {
+      localStorage.setItem('phChecklistTemplates', JSON.stringify(state.checklistTemplates));
+      if (currentUser) syncToFirebase('checklistTemplates', state.checklistTemplates);
+    }
+
     function saveLiSnapshots() {
       localStorage.setItem('phliSnapshots', JSON.stringify(state.liSnapshots));
       if (currentUser) syncToFirebase('liSnapshots', state.liSnapshots);
@@ -254,6 +274,11 @@
 
       const tasks = localStorage.getItem('phtasks');
       if (tasks) state.tasks = JSON.parse(tasks);
+
+      const boards = localStorage.getItem('phboards');
+      if (boards) state.boards = JSON.parse(boards);
+      const checklistTemplates = localStorage.getItem('phChecklistTemplates');
+      if (checklistTemplates) state.checklistTemplates = JSON.parse(checklistTemplates);
 
       const liSnapshots = localStorage.getItem('phliSnapshots');
       if (liSnapshots) state.liSnapshots = JSON.parse(liSnapshots);
@@ -4660,6 +4685,7 @@
             </div>
           </div>` : ''}
         </div>`;
+      renderDashboardBoards();
     }
 
     function renderAnalytics() {
@@ -7649,76 +7675,190 @@ www.livetour.ch`;
       tief:   { label: '🟢 Tief',   color: '#22c55e' }
     };
 
+    function _renderTaskFilterExtras() {
+      const bfEl = document.getElementById('taskFilterBoard');
+      if (bfEl) {
+        const cur = state.taskFilterBoard || 'all';
+        bfEl.innerHTML = '<option value="all">Alle Boards</option><option value="__none__">Ohne Board</option>' +
+          state.boards.map(b => `<option value="${b.id}">${escapeHtml(b.name)}</option>`).join('');
+        bfEl.value = cur;
+      }
+      const ssEl = document.getElementById('taskSortBy');
+      if (ssEl) ssEl.value = state.taskListSortBy || 'faelligkeit';
+      const dfEl = document.getElementById('taskFilterDateFrom');
+      const dtEl = document.getElementById('taskFilterDateTo');
+      if (dfEl) dfEl.value = state.taskFilterDateFrom || '';
+      if (dtEl) dtEl.value = state.taskFilterDateTo || '';
+    }
+
     function renderTasks() {
       const typeFilter     = document.getElementById('taskFilterType')?.value || 'all';
       const statusFilter   = document.getElementById('taskFilterStatus')?.value || 'all';
       const priorityFilter = document.getElementById('taskFilterPriority')?.value || 'all';
+      const boardFilter    = state.taskFilterBoard || 'all';
+      const dateFrom       = state.taskFilterDateFrom || '';
+      const dateTo         = state.taskFilterDateTo || '';
+      const sortBy         = state.taskListSortBy || 'faelligkeit';
+      const showCompleted  = state.taskListShowCompleted;
+
+      _renderTaskFilterExtras();
 
       let filtered = state.tasks.slice();
       if (typeFilter !== 'all')     filtered = filtered.filter(t => t.type === typeFilter);
       if (statusFilter !== 'all')   filtered = filtered.filter(t => t.status === statusFilter);
       if (priorityFilter !== 'all') filtered = filtered.filter(t => t.priority === priorityFilter);
+      if (boardFilter === '__none__') filtered = filtered.filter(t => !t.boardId);
+      else if (boardFilter !== 'all') filtered = filtered.filter(t => t.boardId === boardFilter);
+      if (dateFrom) filtered = filtered.filter(t => !t.dueDate || t.dueDate >= dateFrom);
+      if (dateTo)   filtered = filtered.filter(t => !t.dueDate || t.dueDate <= dateTo);
+
+      const open      = filtered.filter(t => !['erledigt','abgesagt'].includes(t.status));
+      const completed = filtered.filter(t =>  ['erledigt','abgesagt'].includes(t.status));
 
       const prioOrder   = { hoch: 0, mittel: 1, tief: 2 };
       const statusOrder = { inbearbeitung: 0, geplant: 1, idee: 2, erledigt: 3, abgesagt: 4 };
-      filtered.sort((a, b) => {
-        const so = (statusOrder[a.status] || 9) - (statusOrder[b.status] || 9);
-        if (so !== 0) return so;
-        const po = (prioOrder[a.priority] || 9) - (prioOrder[b.priority] || 9);
-        if (po !== 0) return po;
+      const sortFn = (a, b) => {
+        if (sortBy === 'prioritaet') { const d = (prioOrder[a.priority]??9)-(prioOrder[b.priority]??9); if (d!==0) return d; }
+        if (sortBy === 'status')     { const d = (statusOrder[a.status]??9)-(statusOrder[b.status]??9); if (d!==0) return d; }
+        if (sortBy === 'erstellt')   return new Date(b.createdAt||0)-new Date(a.createdAt||0);
         if (a.dueDate && b.dueDate) return a.dueDate.localeCompare(b.dueDate);
         return a.dueDate ? -1 : b.dueDate ? 1 : 0;
-      });
+      };
+      open.sort(sortFn);
+      completed.sort((a,b) => new Date(b.completedAt||b.updatedAt||0)-new Date(a.completedAt||a.updatedAt||0));
 
-      const today    = new Date().toISOString().split('T')[0];
-      const total    = state.tasks.length;
-      const done     = state.tasks.filter(t => t.status === 'erledigt').length;
-      const inprog   = state.tasks.filter(t => t.status === 'inbearbeitung').length;
-      const overdue  = state.tasks.filter(t => t.dueDate && t.dueDate < today && !['erledigt','abgesagt'].includes(t.status)).length;
-      const statsEl  = document.getElementById('aufgabenStats');
-      if (statsEl) statsEl.textContent = `${total} Aufgaben · ${done} erledigt · ${inprog} in Bearbeitung${overdue > 0 ? ' · ⚠️ ' + overdue + ' überfällig' : ''}`;
+      const today   = new Date().toISOString().split('T')[0];
+      const total   = state.tasks.length;
+      const done    = state.tasks.filter(t => t.status === 'erledigt').length;
+      const inprog  = state.tasks.filter(t => t.status === 'inbearbeitung').length;
+      const overdue = state.tasks.filter(t => t.dueDate && t.dueDate < today && !['erledigt','abgesagt'].includes(t.status)).length;
+      const statsEl = document.getElementById('aufgabenStats');
+      if (statsEl) statsEl.textContent = `${total} Aufgaben · ${done} erledigt · ${inprog} in Bearbeitung${overdue>0?' · ⚠️ '+overdue+' überfällig':''}`;
 
       const el = document.getElementById('aufgabenListe');
       if (!el) return;
 
-      if (filtered.length === 0) {
-        el.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted);font-size:13px;">Keine Aufgaben gefunden. Erstelle deine erste Aufgabe mit "+ Neue Aufgabe".</div>';
-        return;
-      }
+      const fmt = d => new Date(d+'T00:00:00').toLocaleDateString('de-CH',{day:'2-digit',month:'2-digit',year:'numeric'});
 
-      el.innerHTML = filtered.map(task => {
+      const renderTaskCard = task => {
         const typeLabel  = TASK_TYPES[task.type] || task.type;
         const statusInfo = TASK_STATUS[task.status] || { label: task.status, color: '#888' };
         const prioInfo   = TASK_PRIORITY[task.priority] || { label: task.priority, color: '#888' };
         const isOverdue  = task.dueDate && task.dueDate < today && !['erledigt','abgesagt'].includes(task.status);
         const isDone     = task.status === 'erledigt' || task.status === 'abgesagt';
+        const board      = task.boardId ? state.boards.find(b => b.id === task.boardId) : null;
+        const subs       = task.subtasks || [];
+        const subTotal   = subs.length;
+        const subDone    = subs.filter(s => s.done).length;
+        const subPct     = subTotal > 0 ? Math.round((subDone/subTotal)*100) : 0;
+        const allSubsDone = subTotal > 0 && subDone === subTotal;
+        const leftBorder = isOverdue ? '#ef4444' : allSubsDone && subTotal > 0 ? '#22c55e' : statusInfo.color;
 
-        const fmt = d => { const x = new Date(d + 'T00:00:00'); return x.toLocaleDateString('de-CH', { day:'2-digit', month:'2-digit', year:'numeric' }); };
+        const subtaskBar = subTotal > 0 ? `
+          <div style="margin-top:8px;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;">
+              <span style="font-size:11px;color:var(--muted);">${subDone}/${subTotal} Erledigt</span>
+              <span style="font-size:11px;padding:1px 7px;border-radius:999px;font-weight:600;background:${allSubsDone?'rgba(34,197,94,.15)':'rgba(245,158,11,.1)'};color:${allSubsDone?'#22c55e':'var(--accent)'};">${subPct}%</span>
+            </div>
+            <div style="height:4px;background:var(--line);border-radius:2px;overflow:hidden;">
+              <div style="height:100%;width:${subPct}%;background:${allSubsDone?'#22c55e':'var(--accent)'};border-radius:2px;transition:width .2s;"></div>
+            </div>
+          </div>` : '';
 
-        return `
-          <div style="background:var(--card);border:1px solid var(--line);border-left:3px solid ${isOverdue ? '#ef4444' : statusInfo.color};border-radius:10px;padding:14px 16px;display:flex;gap:14px;align-items:flex-start;${isDone ? 'opacity:0.6;' : ''}">
+        const subtaskRows = subTotal > 0 ? `
+          <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--line);">
+            ${subs.slice().sort((a,b)=>(a.order??0)-(b.order??0)).map(s=>`
+              <div style="display:flex;align-items:center;gap:8px;padding:3px 0;">
+                <input type="checkbox" ${s.done?'checked':''} style="accent-color:var(--accent);width:14px;height:14px;cursor:pointer;flex-shrink:0;"
+                  onchange="toggleSubtask('${task.id}','${s.id}',this.checked)">
+                <span style="font-size:12px;${s.done?'text-decoration:line-through;color:var(--muted);':''}">${escapeHtml(s.text)}</span>
+              </div>`).join('')}
+          </div>` : '';
+
+        return `<div style="background:var(--card);border:1px solid var(--line);border-left:3px solid ${leftBorder};border-radius:10px;padding:14px 16px;${isDone?'opacity:0.65;':''}">
+          <div style="display:flex;gap:14px;align-items:flex-start;">
             <div style="flex:1;min-width:0;">
               <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px;">
                 <span style="font-size:11px;background:var(--accent-soft);color:var(--accent);padding:2px 8px;border-radius:999px;">${typeLabel}</span>
                 <span style="font-size:11px;background:${statusInfo.color}22;color:${statusInfo.color};padding:2px 8px;border-radius:999px;border:1px solid ${statusInfo.color}44;">${statusInfo.label}</span>
                 <span style="font-size:11px;color:${prioInfo.color};font-weight:600;">${prioInfo.label}</span>
-                ${isOverdue ? '<span style="font-size:11px;color:#ef4444;font-weight:700;">⚠️ Überfällig</span>' : ''}
+                ${board?`<span style="font-size:11px;padding:2px 8px;border-radius:999px;background:${board.color}22;color:${board.color};font-weight:600;">📁 ${escapeHtml(board.name)}</span>`:''}
+                ${isOverdue?'<span style="font-size:11px;color:#ef4444;font-weight:700;">⚠️ Überfällig</span>':''}
               </div>
-              <div style="font-size:14px;font-weight:600;color:var(--text);${isDone ? 'text-decoration:line-through;' : ''}">${task.title}</div>
-              ${task.description ? `<div style="font-size:12px;color:var(--muted);margin-top:3px;">${task.description}</div>` : ''}
+              <div style="font-size:14px;font-weight:600;color:var(--text);${isDone?'text-decoration:line-through;':''}">${escapeHtml(task.title)}</div>
+              ${task.description?`<div style="font-size:12px;color:var(--muted);margin-top:3px;">${escapeHtml(task.description)}</div>`:''}
               <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:6px;font-size:11px;color:var(--muted);">
-                ${task.dueDate ? `<span>📅 Fällig: <strong style="color:${isOverdue ? '#ef4444' : 'var(--text)'};">${fmt(task.dueDate)}</strong></span>` : ''}
-                ${task.type === 'event' && task.eventDate ? `<span>📍 Event: <strong>${fmt(task.eventDate)}</strong>${task.eventLocation ? ' · ' + task.eventLocation : ''}</span>` : ''}
-                ${task.notes ? `<span style="font-style:italic;">📝 ${task.notes}</span>` : ''}
+                ${task.dueDate?`<span>📅 Fällig: <strong style="color:${isOverdue?'#ef4444':'var(--text)'};">${fmt(task.dueDate)}</strong></span>`:''}
+                ${task.type==='event'&&task.eventDate?`<span>📍 Event: <strong>${fmt(task.eventDate)}</strong>${task.eventLocation?' · '+escapeHtml(task.eventLocation):''}</span>`:''}
+                ${task.notes?`<span style="font-style:italic;">📝 ${escapeHtml(task.notes)}</span>`:''}
               </div>
+              ${subtaskBar}${subtaskRows}
             </div>
             <div style="display:flex;gap:6px;flex-shrink:0;">
-              ${task.status !== 'erledigt' ? `<button class="btn" style="padding:4px 10px;font-size:11px;" onclick="quickCompleteTask('${task.id}')">✅</button>` : ''}
+              ${!isDone?`<button class="btn" style="padding:4px 10px;font-size:11px;" onclick="quickCompleteTask('${task.id}')" title="Erledigt">✅</button>`:''}
               <button class="btn" style="padding:4px 10px;font-size:11px;" onclick="openTaskModal('${task.id}')">✏️</button>
               <button class="btn" style="padding:4px 10px;font-size:11px;color:#ef4444;" onclick="deleteTask('${task.id}')">🗑️</button>
             </div>
-          </div>`;
-      }).join('');
+          </div>
+        </div>`;
+      };
+
+      let html = '';
+      if (open.length === 0) {
+        html += '<div style="text-align:center;padding:32px;color:var(--muted);font-size:13px;">Keine offenen Aufgaben. Erstelle eine neue Aufgabe oder zeige erledigte an.</div>';
+      } else {
+        html += '<div style="display:grid;gap:10px;">' + open.map(renderTaskCard).join('') + '</div>';
+      }
+      if (completed.length > 0) {
+        html += `<div style="margin-top:16px;">
+          <button onclick="toggleShowCompleted()" style="background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;padding:6px 0;display:flex;align-items:center;gap:6px;width:100%;">
+            ${showCompleted?'▲':'▼'} ${completed.length} erledigte Aufgabe${completed.length!==1?'n':''} ${showCompleted?'verbergen':'anzeigen'}
+          </button>
+          ${showCompleted?'<div style="display:grid;gap:10px;margin-top:8px;">'+completed.map(renderTaskCard).join('')+'</div>':''}
+        </div>`;
+      }
+      el.innerHTML = html || '<div style="text-align:center;padding:40px;color:var(--muted);font-size:13px;">Keine Aufgaben gefunden.</div>';
+    }
+
+    function toggleSubtask(taskId, subId, done) {
+      const task = state.tasks.find(t => t.id === taskId);
+      if (!task || !task.subtasks) return;
+      const sub = task.subtasks.find(s => s.id === subId);
+      if (!sub) return;
+      sub.done = done;
+      sub.completedAt = done ? new Date().toISOString() : null;
+      task.updatedAt = new Date().toISOString();
+      saveTasks();
+      renderTasks();
+      if (typeof renderBoardKanban === 'function') renderBoardKanban();
+    }
+
+    function toggleShowCompleted() {
+      state.taskListShowCompleted = !state.taskListShowCompleted;
+      renderTasks();
+    }
+
+    function applyTaskFilters() {
+      state.taskFilterBoard    = document.getElementById('taskFilterBoard')?.value    || 'all';
+      state.taskFilterDateFrom = document.getElementById('taskFilterDateFrom')?.value || '';
+      state.taskFilterDateTo   = document.getElementById('taskFilterDateTo')?.value   || '';
+      state.taskListSortBy     = document.getElementById('taskSortBy')?.value         || 'faelligkeit';
+      renderTasks();
+    }
+
+    function resetTaskFilter() {
+      const tf = document.getElementById('taskFilterType');
+      const sf = document.getElementById('taskFilterStatus');
+      const pf = document.getElementById('taskFilterPriority');
+      if (tf) tf.value = 'all';
+      if (sf) sf.value = 'all';
+      if (pf) pf.value = 'all';
+      state.taskFilterBoard = 'all';
+      state.taskFilterDateFrom = '';
+      state.taskFilterDateTo = '';
+      state.taskListSortBy = 'faelligkeit';
+      _renderTaskFilterExtras();
+      renderTasks();
     }
 
     function getCurrentWeekKey() {
@@ -8017,6 +8157,14 @@ www.livetour.ch`;
       }
     }
 
+    function _populateTaskBoardSelect(selectedId) {
+      const sel = document.getElementById('taskBoardId');
+      if (!sel) return;
+      sel.innerHTML = '<option value="">Kein Board</option>' +
+        state.boards.map(b => `<option value="${b.id}"${b.id===selectedId?' selected':''}>${escapeHtml(b.name)}</option>`).join('');
+      if (selectedId) sel.value = selectedId;
+    }
+
     function openTaskModal(taskId) {
       const modal = document.getElementById('taskModal');
       if (!modal) return;
@@ -8034,6 +8182,8 @@ www.livetour.ch`;
         document.getElementById('taskEventDate').value     = task.eventDate || '';
         document.getElementById('taskEventLocation').value = task.eventLocation || '';
         document.getElementById('taskNotes').value         = task.notes || '';
+        _populateTaskBoardSelect(task.boardId || '');
+        renderSubtasksInModal(task.subtasks || []);
       } else {
         document.getElementById('taskType').value          = 'liUnternehmen';
         document.getElementById('taskTitle').value         = '';
@@ -8044,12 +8194,79 @@ www.livetour.ch`;
         document.getElementById('taskEventDate').value     = '';
         document.getElementById('taskEventLocation').value = '';
         document.getElementById('taskNotes').value         = '';
+        const preBoard = state.taskFilterBoard !== 'all' && state.taskFilterBoard !== '__none__' ? state.taskFilterBoard : '';
+        _populateTaskBoardSelect(preBoard);
+        const board = preBoard ? state.boards.find(b => b.id === preBoard) : null;
+        const initSubs = board?.templateId
+          ? (state.checklistTemplates.find(t => t.id === board.templateId)?.items || []).map(i => ({
+              id: 'sub_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+              text: i.text, done: false, completedAt: null, order: i.order
+            }))
+          : [];
+        renderSubtasksInModal(initSubs);
       }
       toggleTaskEventFields();
+      _populateSubtaskTemplateSelect();
       modal.classList.add('show');
     }
 
     function closeTaskModal() { document.getElementById('taskModal')?.classList.remove('show'); }
+
+    function renderSubtasksInModal(subtasks) {
+      state._modalSubtasks = subtasks.map(s => ({ ...s }));
+      const el = document.getElementById('taskSubtaskEditor');
+      if (!el) return;
+      const items = (state._modalSubtasks || []).slice().sort((a,b) => (a.order??0)-(b.order??0));
+      el.innerHTML =
+        (items.length === 0 ? '<div style="color:var(--muted);font-size:12px;padding:4px 0 6px;">Noch keine Teilschritte.</div>' : '') +
+        items.map(s => `
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+            <input type="checkbox" ${s.done?'checked':''} style="accent-color:var(--accent);width:14px;height:14px;cursor:pointer;flex-shrink:0;"
+              onchange="updateModalSubtaskDone('${s.id}',this.checked)">
+            <input type="text" value="${(s.text||'').replace(/"/g,'&quot;')}" class="input-field"
+              style="flex:1;padding:4px 8px;font-size:12px;"
+              oninput="updateModalSubtaskText('${s.id}',this.value)" placeholder="Teilschritt…">
+            <button class="btn" style="padding:2px 8px;font-size:11px;color:var(--danger);" onclick="removeModalSubtask('${s.id}')">✕</button>
+          </div>`).join('');
+    }
+
+    function _populateSubtaskTemplateSelect() {
+      const sel = document.getElementById('taskSubtaskTemplateSelect');
+      if (!sel) return;
+      sel.innerHTML = '<option value="">Vorlage anwenden...</option>' +
+        state.checklistTemplates.map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('');
+    }
+
+    function addModalSubtask() {
+      const id = 'sub_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
+      (state._modalSubtasks = state._modalSubtasks || []).push({ id, text: '', done: false, completedAt: null, order: state._modalSubtasks.length });
+      renderSubtasksInModal(state._modalSubtasks);
+    }
+    function removeModalSubtask(subId) {
+      state._modalSubtasks = (state._modalSubtasks || []).filter(s => s.id !== subId);
+      renderSubtasksInModal(state._modalSubtasks);
+    }
+    function updateModalSubtaskText(subId, text) {
+      const s = (state._modalSubtasks || []).find(x => x.id === subId);
+      if (s) s.text = text;
+    }
+    function updateModalSubtaskDone(subId, done) {
+      const s = (state._modalSubtasks || []).find(x => x.id === subId);
+      if (s) { s.done = done; s.completedAt = done ? new Date().toISOString() : null; }
+    }
+    function applyChecklistTemplate(tplId) {
+      const tpl = state.checklistTemplates.find(t => t.id === tplId);
+      if (!tpl) return;
+      state._modalSubtasks = tpl.items.map(item => ({
+        id: 'sub_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+        text: item.text, done: false, completedAt: null, order: item.order
+      }));
+      renderSubtasksInModal(state._modalSubtasks);
+    }
+    function applySelectedTemplate() {
+      const sel = document.getElementById('taskSubtaskTemplateSelect');
+      if (sel?.value) { applyChecklistTemplate(sel.value); sel.value = ''; }
+    }
 
     function toggleTaskEventFields() {
       const type      = document.getElementById('taskType')?.value;
@@ -8076,6 +8293,8 @@ www.livetour.ch`;
         task.eventDate     = document.getElementById('taskEventDate')?.value || '';
         task.eventLocation = (document.getElementById('taskEventLocation')?.value || '').trim();
         task.notes         = (document.getElementById('taskNotes')?.value || '').trim();
+        task.boardId       = document.getElementById('taskBoardId')?.value || null;
+        task.subtasks      = (state._modalSubtasks || []).filter(s => (s.text||'').trim());
         task.updatedAt     = now;
         if (wasNotDone && status === 'erledigt') task.completedAt = now;
       } else {
@@ -8090,6 +8309,8 @@ www.livetour.ch`;
           eventDate:     document.getElementById('taskEventDate')?.value || '',
           eventLocation: (document.getElementById('taskEventLocation')?.value || '').trim(),
           notes:         (document.getElementById('taskNotes')?.value || '').trim(),
+          boardId:       document.getElementById('taskBoardId')?.value || null,
+          subtasks:      (state._modalSubtasks || []).filter(s => (s.text||'').trim()),
           completedAt:   status === 'erledigt' ? now : null,
           createdAt:     now,
           updatedAt:     now
@@ -8099,6 +8320,9 @@ www.livetour.ch`;
       closeTaskModal();
       renderTasks();
       if (state.tasksTab === 'analytics') renderTasksAnalytics();
+      if (typeof renderBoardKanban === 'function') renderBoardKanban();
+      if (typeof renderBoards === 'function') renderBoards();
+      if (typeof renderDashboardBoards === 'function') renderDashboardBoards();
       showToast(taskId ? '✅ Aufgabe aktualisiert' : '✅ Aufgabe erstellt');
     }
 
@@ -8124,19 +8348,359 @@ www.livetour.ch`;
       showToast('🗑️ Aufgabe gelöscht');
     }
 
-    function applyTaskFilter() { renderTasks(); }
-
-    function resetTaskFilter() {
-      const tf = document.getElementById('taskFilterType');
-      const sf = document.getElementById('taskFilterStatus');
-      const pf = document.getElementById('taskFilterPriority');
-      if (tf) tf.value = 'all';
-      if (sf) sf.value = 'all';
-      if (pf) pf.value = 'all';
-      renderTasks();
-    }
+    function applyTaskFilter() { applyTaskFilters(); }
 
     // ─── END AUFGABEN MODULE ───────────────────────────────────────────────────
+
+    // ─── BOARDS MODULE ────────────────────────────────────────────────────────────
+
+    function setAufgabenTab(tab) {
+      state.tasksTab = tab;
+      document.querySelectorAll('[data-tasks-tab]').forEach(b => {
+        b.classList.toggle('active', b.dataset.tasksTab === tab);
+        b.style.borderBottom = b.dataset.tasksTab === tab ? '2px solid var(--accent)' : '';
+      });
+      const views = { list:'aufgabenListTab', boards:'aufgabenBoardsTab', vorlagen:'aufgabenVorlagenTab', analytics:'aufgabenAnalyticsTab', linkedin:'aufgabenLiTab' };
+      Object.entries(views).forEach(([k,id]) => { const el=document.getElementById(id); if(el) el.style.display = k===tab?'':'none'; });
+      if (tab === 'analytics')  renderTasksAnalytics();
+      else if (tab === 'linkedin') renderLiTracking();
+      else if (tab === 'boards')  renderBoards();
+      else if (tab === 'vorlagen') renderTemplatesList_Checklist();
+      else renderTasks();
+    }
+
+    function renderBoards() {
+      const el = document.getElementById('aufgabenBoardsView');
+      if (!el) return;
+      const boardCards = state.boards.length === 0
+        ? '<div style="text-align:center;padding:40px;color:var(--muted);font-size:13px;">Noch keine Boards erstellt. Klicke auf \"+ Neues Board\".</div>'
+        : state.boards.map(b => {
+            const tasks  = state.tasks.filter(t => t.boardId === b.id);
+            const total  = tasks.length;
+            const done   = tasks.filter(t => t.status === 'erledigt').length;
+            const inprog = tasks.filter(t => t.status === 'inbearbeitung').length;
+            const open   = tasks.filter(t => !['erledigt','abgesagt'].includes(t.status)).length;
+            const pct    = total > 0 ? Math.round((done/total)*100) : 0;
+            return `<div class="card" style="border-left:4px solid ${b.color||'#3b82f6'};margin-bottom:10px;">
+              <div class="card-content" style="padding:14px 16px;">
+                <div style="display:flex;align-items:flex-start;gap:12px;">
+                  <div style="flex:1;min-width:0;">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                      <div style="width:12px;height:12px;border-radius:50%;background:${b.color||'#3b82f6'};flex-shrink:0;"></div>
+                      <span style="font-size:15px;font-weight:700;">${escapeHtml(b.name)}</span>
+                    </div>
+                    ${b.description?`<div style="font-size:12px;color:var(--muted);margin-bottom:8px;">${escapeHtml(b.description)}</div>`:''}
+                    <div style="display:flex;gap:14px;font-size:12px;color:var(--muted);margin-bottom:8px;flex-wrap:wrap;">
+                      <span>${total} Aufgaben</span>
+                      <span style="color:#22c55e;">✓ ${done} erledigt</span>
+                      <span style="color:#f59e0b;">⚙ ${inprog} in Bearbeitung</span>
+                      <span>${open} offen</span>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                      <div style="flex:1;height:6px;background:var(--line);border-radius:3px;overflow:hidden;">
+                        <div style="height:100%;width:${pct}%;background:${b.color||'#3b82f6'};border-radius:3px;transition:width .3s;"></div>
+                      </div>
+                      <span style="font-size:11px;color:var(--muted);white-space:nowrap;">${done}/${total} · ${pct}%</span>
+                    </div>
+                  </div>
+                  <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;">
+                    <button class="btn primary" style="padding:4px 10px;font-size:11px;" onclick="openBoardKanban('${b.id}')">📋 Kanban</button>
+                    <button class="btn" style="padding:4px 10px;font-size:11px;" onclick="openBoardModal('${b.id}')">✏️</button>
+                    <button class="btn" style="padding:4px 10px;font-size:11px;color:var(--danger);" onclick="deleteBoard('${b.id}')">🗑️</button>
+                  </div>
+                </div>
+              </div>
+            </div>`;
+          }).join('');
+      el.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+          <div style="font-size:16px;font-weight:700;">📁 Boards</div>
+          <button class="btn primary" onclick="openBoardModal()">+ Neues Board</button>
+        </div>
+        ${boardCards}`;
+    }
+
+    function openBoardModal(boardId) {
+      const modal = document.getElementById('boardModal');
+      if (!modal) return;
+      document.getElementById('boardEditId').value = boardId || '';
+      document.getElementById('boardModalTitle').textContent = boardId ? 'Board bearbeiten' : 'Neues Board';
+      if (boardId) {
+        const b = state.boards.find(x => x.id === boardId);
+        if (!b) return;
+        document.getElementById('boardName').value        = b.name || '';
+        document.getElementById('boardColor').value       = b.color || '#3b82f6';
+        document.getElementById('boardDescription').value = b.description || '';
+      } else {
+        document.getElementById('boardName').value        = '';
+        document.getElementById('boardColor').value       = '#3b82f6';
+        document.getElementById('boardDescription').value = '';
+      }
+      const tplSel = document.getElementById('boardTemplateId');
+      if (tplSel) {
+        const cur = boardId ? (state.boards.find(b=>b.id===boardId)?.templateId||'') : '';
+        tplSel.innerHTML = '<option value="">Keine Vorlage</option>' +
+          state.checklistTemplates.map(t => `<option value="${t.id}"${t.id===cur?' selected':''}>${escapeHtml(t.name)}</option>`).join('');
+        tplSel.value = cur;
+      }
+      modal.style.display = 'flex';
+    }
+
+    function closeBoardModal() { const m=document.getElementById('boardModal'); if(m) m.style.display='none'; }
+
+    function saveBoardFromModal() {
+      const name = (document.getElementById('boardName')?.value || '').trim();
+      if (!name) { showToast('❌ Board-Name ist Pflichtfeld'); return; }
+      const boardId = document.getElementById('boardEditId')?.value;
+      const now = new Date().toISOString();
+      if (boardId) {
+        const b = state.boards.find(x => x.id === boardId);
+        if (!b) return;
+        b.name        = name;
+        b.color       = document.getElementById('boardColor')?.value || '#3b82f6';
+        b.description = (document.getElementById('boardDescription')?.value || '').trim();
+        b.templateId  = document.getElementById('boardTemplateId')?.value || null;
+        b.updatedAt   = now;
+      } else {
+        state.boards.push({
+          id: 'board_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+          name, color: document.getElementById('boardColor')?.value || '#3b82f6',
+          description: (document.getElementById('boardDescription')?.value || '').trim(),
+          templateId: document.getElementById('boardTemplateId')?.value || null,
+          createdAt: now, updatedAt: now
+        });
+      }
+      saveBoards();
+      closeBoardModal();
+      renderBoards();
+      renderDashboardBoards();
+      showToast(boardId ? '✅ Board aktualisiert' : '✅ Board erstellt');
+    }
+
+    function deleteBoard(boardId) {
+      if (!confirm('Board wirklich löschen? Aufgaben bleiben erhalten, werden aber vom Board gelöst.')) return;
+      state.boards = state.boards.filter(b => b.id !== boardId);
+      state.tasks.forEach(t => { if (t.boardId === boardId) { t.boardId = null; t.updatedAt = new Date().toISOString(); } });
+      saveBoards(); saveTasks();
+      renderBoards(); renderTasks(); renderDashboardBoards();
+      showToast('🗑️ Board gelöscht');
+    }
+
+    function openBoardKanban(boardId) {
+      state.activeBoardId = boardId;
+      state.boardsSubView = 'kanban';
+      const lv = document.getElementById('aufgabenBoardsView');
+      const kv = document.getElementById('aufgabenBoardsKanbanView');
+      if (lv) lv.style.display = 'none';
+      if (kv) kv.style.display = '';
+      renderBoardKanban();
+    }
+
+    function closeBoardKanban() {
+      state.activeBoardId = null;
+      state.boardsSubView = 'list';
+      const lv = document.getElementById('aufgabenBoardsView');
+      const kv = document.getElementById('aufgabenBoardsKanbanView');
+      if (lv) lv.style.display = '';
+      if (kv) kv.style.display = 'none';
+      renderBoards();
+    }
+
+    function renderBoardKanban() {
+      const el = document.getElementById('aufgabenBoardsKanbanView');
+      if (!el) return;
+      const board = state.boards.find(b => b.id === state.activeBoardId);
+      if (!board) { el.innerHTML = ''; return; }
+      const COLS = [
+        { key:'offen',    label:'Offen',          statuses:['idee','geplant'],       color:'#3b82f6' },
+        { key:'inprog',   label:'In Bearbeitung',  statuses:['inbearbeitung'],         color:'#f59e0b' },
+        { key:'erledigt', label:'Erledigt',         statuses:['erledigt','abgesagt'],   color:'#22c55e' }
+      ];
+      const tasks = state.tasks.filter(t => t.boardId === state.activeBoardId);
+      const today = new Date().toISOString().split('T')[0];
+      const fmt   = d => new Date(d+'T00:00:00').toLocaleDateString('de-CH',{day:'2-digit',month:'2-digit'});
+      const po    = { hoch:0, mittel:1, tief:2 };
+      const boardId = state.activeBoardId || '';
+      el.innerHTML = `
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+          <button class="btn" onclick="closeBoardKanban()">← Zurück</button>
+          <span style="font-size:16px;font-weight:700;color:${board.color||'var(--accent)'};">${escapeHtml(board.name)}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;align-items:start;">` +
+        COLS.map(col => {
+          const colTasks = tasks.filter(t => col.statuses.includes(t.status)).sort((a,b)=>(po[a.priority]??9)-(po[b.priority]??9));
+          return `<div style="background:var(--bg);border:1px solid var(--line);border-top:3px solid ${col.color};border-radius:8px;padding:12px;">
+            <div style="font-size:12px;font-weight:700;color:${col.color};text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">
+              ${col.label} <span style="font-weight:400;color:var(--muted);">(${colTasks.length})</span>
+            </div>
+            <div style="display:grid;gap:8px;">
+              ${colTasks.length===0
+                ? `<div style="color:var(--muted);font-size:12px;text-align:center;padding:12px 0;">Keine Aufgaben</div>`
+                : colTasks.map(t => {
+                    const subs=t.subtasks||[]; const sd=subs.filter(s=>s.done).length;
+                    const isOv=t.dueDate&&t.dueDate<today&&col.key!=='erledigt';
+                    const prio=TASK_PRIORITY[t.priority]||{color:'#888'};
+                    const sp=subs.length>0?Math.round((sd/subs.length)*100):0;
+                    return `<div style="background:var(--card);border:1px solid var(--line);border-left:3px solid ${prio.color};border-radius:6px;padding:10px 12px;cursor:pointer;"
+                         onclick="openTaskModal('${t.id}')">
+                      <div style="font-size:13px;font-weight:600;margin-bottom:5px;">${escapeHtml(t.title)}</div>
+                      <div style="display:flex;gap:8px;flex-wrap:wrap;font-size:11px;color:var(--muted);">
+                        ${t.dueDate?`<span style="color:${isOv?'#ef4444':'var(--muted)'};">${isOv?'⚠️ ':'📅 '}${fmt(t.dueDate)}</span>`:''}
+                        ${subs.length>0?`<span>${sd}/${subs.length} ✓</span>`:''}
+                      </div>
+                      ${subs.length>0?`<div style="height:3px;background:var(--line);border-radius:2px;margin-top:6px;overflow:hidden;"><div style="height:100%;width:${sp}%;background:${sp===100?'#22c55e':'var(--accent)'};border-radius:2px;"></div></div>`:''}
+                    </div>`;
+                  }).join('')
+              }
+            </div>
+            <button class="btn" style="width:100%;margin-top:10px;font-size:12px;"
+              onclick="(function(){openTaskModal();setTimeout(function(){var s=document.getElementById('taskBoardId');if(s)s.value='${boardId}'},50)})()">
+              + Aufgabe
+            </button>
+          </div>`;
+        }).join('') + `</div>`;
+    }
+
+    // ─── CHECKLIST TEMPLATES MODULE ───────────────────────────────────────────────
+
+    function renderTemplatesList_Checklist() {
+      const el = document.getElementById('aufgabenVorlagenView');
+      if (!el) return;
+      const tplCards = state.checklistTemplates.length === 0
+        ? '<div style="text-align:center;padding:40px;color:var(--muted);font-size:13px;">Noch keine Vorlagen erstellt. Klicke auf \"+ Neue Vorlage\".</div>'
+        : state.checklistTemplates.map(t => `
+          <div class="card" style="margin-bottom:10px;">
+            <div class="card-content" style="padding:14px 16px;">
+              <div style="display:flex;align-items:flex-start;gap:12px;">
+                <div style="flex:1;min-width:0;">
+                  <div style="font-size:15px;font-weight:700;margin-bottom:4px;">📄 ${escapeHtml(t.name)}</div>
+                  <div style="font-size:12px;color:var(--muted);margin-bottom:6px;">${t.items.length} Punkt${t.items.length!==1?'e':''}</div>
+                  <div>${t.items.slice(0,4).map(i=>`<span style="display:inline-block;background:var(--accent-soft);color:var(--accent);padding:1px 7px;border-radius:4px;margin:2px;font-size:11px;">${escapeHtml(i.text)}</span>`).join('')}${t.items.length>4?`<span style="font-size:11px;color:var(--muted);"> +${t.items.length-4} weitere</span>`:''}</div>
+                </div>
+                <div style="display:flex;gap:6px;flex-shrink:0;">
+                  <button class="btn" style="padding:4px 10px;font-size:11px;" onclick="openChecklistTemplateModal('${t.id}')">✏️</button>
+                  <button class="btn" style="padding:4px 10px;font-size:11px;color:var(--danger);" onclick="deleteChecklistTemplate('${t.id}')">🗑️</button>
+                </div>
+              </div>
+            </div>
+          </div>`).join('');
+      el.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+          <div style="font-size:16px;font-weight:700;">📄 Checklisten-Vorlagen</div>
+          <button class="btn primary" onclick="openChecklistTemplateModal()">+ Neue Vorlage</button>
+        </div>
+        ${tplCards}`;
+    }
+
+    function openChecklistTemplateModal(tplId) {
+      const modal = document.getElementById('checklistTemplateModal');
+      if (!modal) return;
+      document.getElementById('cltEditId').value = tplId || '';
+      document.getElementById('cltModalTitle').textContent = tplId ? 'Vorlage bearbeiten' : 'Neue Vorlage';
+      if (tplId) {
+        const tpl = state.checklistTemplates.find(t => t.id === tplId);
+        if (!tpl) return;
+        document.getElementById('cltName').value = tpl.name || '';
+        state._cltItems = tpl.items.map(i => ({ ...i }));
+      } else {
+        document.getElementById('cltName').value = '';
+        state._cltItems = [];
+      }
+      renderCltItems();
+      modal.style.display = 'flex';
+    }
+
+    function closeChecklistTemplateModal() { const m=document.getElementById('checklistTemplateModal'); if(m) m.style.display='none'; }
+
+    function renderCltItems() {
+      const el = document.getElementById('cltItemsEditor');
+      if (!el) return;
+      const items = (state._cltItems || []).slice().sort((a,b)=>(a.order??0)-(b.order??0));
+      el.innerHTML =
+        (items.length===0?'<div style="color:var(--muted);font-size:12px;padding:4px 0;">Noch keine Punkte.</div>':'') +
+        items.map(item=>`
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+            <span style="font-size:12px;color:var(--muted);width:22px;text-align:right;flex-shrink:0;">${(item.order||0)+1}.</span>
+            <input type="text" value="${(item.text||'').replace(/"/g,'&quot;')}" class="input-field"
+              style="flex:1;padding:4px 8px;font-size:12px;"
+              oninput="updateCltItemText('${item.id}',this.value)" placeholder="Schritt…">
+            <button class="btn" style="padding:2px 8px;font-size:11px;color:var(--danger);" onclick="removeCltItem('${item.id}')">✕</button>
+          </div>`).join('') +
+        `<button class="btn" style="font-size:12px;margin-top:6px;" onclick="addCltItem()">+ Punkt hinzufügen</button>`;
+    }
+
+    function addCltItem() {
+      (state._cltItems = state._cltItems||[]).push({ id:'item_'+Date.now()+'_'+Math.random().toString(36).substr(2,4), text:'', order:state._cltItems.length });
+      renderCltItems();
+    }
+    function removeCltItem(id) { state._cltItems=(state._cltItems||[]).filter(x=>x.id!==id); renderCltItems(); }
+    function updateCltItemText(id, text) { const i=(state._cltItems||[]).find(x=>x.id===id); if(i) i.text=text; }
+
+    function saveChecklistTemplateFromModal() {
+      const name = (document.getElementById('cltName')?.value || '').trim();
+      if (!name) { showToast('❌ Name ist Pflichtfeld'); return; }
+      const tplId = document.getElementById('cltEditId')?.value;
+      const now   = new Date().toISOString();
+      const items = (state._cltItems||[]).filter(i=>(i.text||'').trim()).map((i,idx)=>({...i,order:idx}));
+      if (tplId) {
+        const tpl = state.checklistTemplates.find(t => t.id === tplId);
+        if (!tpl) return;
+        tpl.name = name; tpl.items = items; tpl.updatedAt = now;
+      } else {
+        state.checklistTemplates.push({ id:'tpl_'+Date.now()+'_'+Math.random().toString(36).substr(2,6), name, items, createdAt:now, updatedAt:now });
+      }
+      saveChecklistTemplates();
+      closeChecklistTemplateModal();
+      renderTemplatesList_Checklist();
+      showToast(tplId ? '✅ Vorlage aktualisiert' : '✅ Vorlage erstellt');
+    }
+
+    function deleteChecklistTemplate(tplId) {
+      if (!confirm('Vorlage wirklich löschen?')) return;
+      state.checklistTemplates = state.checklistTemplates.filter(t => t.id !== tplId);
+      state.boards.forEach(b => { if (b.templateId===tplId) { b.templateId=null; b.updatedAt=new Date().toISOString(); } });
+      saveChecklistTemplates(); saveBoards();
+      renderTemplatesList_Checklist(); renderBoards();
+      showToast('🗑️ Vorlage gelöscht');
+    }
+
+    // ─── DASHBOARD BOARDS WIDGET ─────────────────────────────────────────────────
+
+    function renderDashboardBoards() {
+      const el = document.getElementById('dashboardBoardsWidget');
+      if (!el) return;
+      if (!state.boards || state.boards.length === 0) { el.style.display = 'none'; return; }
+      el.style.display = '';
+      const shown = state.boards.slice(0, 4);
+      el.innerHTML = `<div class="card" style="margin-bottom:16px;">
+        <div class="card-content" style="padding:14px 16px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+            <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">📁 Boards · Projektübersicht</div>
+            <button class="btn" style="font-size:11px;padding:3px 10px;" onclick="setView('aufgaben');setTimeout(()=>setAufgabenTab('boards'),50)">Alle Boards →</button>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;">
+            ${shown.map(b => {
+              const tasks = state.tasks.filter(t => t.boardId === b.id);
+              const total = tasks.length;
+              const done  = tasks.filter(t => t.status === 'erledigt').length;
+              const pct   = total > 0 ? Math.round((done/total)*100) : 0;
+              return `<div style="background:var(--bg);border:1px solid var(--line);border-left:3px solid ${b.color||'#3b82f6'};border-radius:8px;padding:10px 12px;cursor:pointer;"
+                   onclick="setView('aufgaben');setTimeout(()=>{setAufgabenTab('boards');openBoardKanban('${b.id}')},80)">
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+                  <div style="width:10px;height:10px;border-radius:50%;background:${b.color||'#3b82f6'};flex-shrink:0;"></div>
+                  <span style="font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(b.name)}</span>
+                </div>
+                <div style="font-size:11px;color:var(--muted);margin-bottom:5px;">${done}/${total} ✓</div>
+                <div style="height:4px;background:var(--line);border-radius:2px;overflow:hidden;">
+                  <div style="height:100%;width:${pct}%;background:${b.color||'#3b82f6'};border-radius:2px;transition:width .3s;"></div>
+                </div>
+              </div>`;
+            }).join('')}
+          </div>
+          ${state.boards.length>4?`<div style="font-size:12px;color:var(--muted);margin-top:8px;text-align:right;">+ ${state.boards.length-4} weitere Boards</div>`:''}
+        </div>
+      </div>`;
+    }
 
     // ─── LINKEDIN TRACKING MODULE ─────────────────────────────────────────────
 
@@ -8564,9 +9128,7 @@ www.livetour.ch`;
             renderAnalytics();
           }
           if (btn.dataset.view === 'aufgaben') {
-            if (state.tasksTab === 'list')      renderTasks();
-            if (state.tasksTab === 'analytics') renderTasksAnalytics();
-            if (state.tasksTab === 'linkedin')  renderLiTracking();
+            setAufgabenTab(state.tasksTab || 'list');
           }
           if (btn.dataset.view === 'hkm') {
             window.initHkmOnView?.();
@@ -8578,22 +9140,7 @@ www.livetour.ch`;
 
       // AUFGABEN TABS
       document.querySelectorAll('[data-tasks-tab]').forEach(btn => {
-        btn.addEventListener('click', () => {
-          state.tasksTab = btn.dataset.tasksTab;
-          document.querySelectorAll('[data-tasks-tab]').forEach(b => {
-            b.classList.toggle('active', b.dataset.tasksTab === state.tasksTab);
-            b.style.borderBottom = b.dataset.tasksTab === state.tasksTab ? '2px solid var(--accent)' : '';
-          });
-          const listEl      = document.getElementById('aufgabenListTab');
-          const analyticsEl = document.getElementById('aufgabenAnalyticsTab');
-          const liEl        = document.getElementById('aufgabenLiTab');
-          if (listEl)      listEl.style.display      = state.tasksTab === 'list'      ? '' : 'none';
-          if (analyticsEl) analyticsEl.style.display = state.tasksTab === 'analytics' ? '' : 'none';
-          if (liEl)        liEl.style.display        = state.tasksTab === 'linkedin'  ? '' : 'none';
-          if (state.tasksTab === 'analytics') renderTasksAnalytics();
-          else if (state.tasksTab === 'linkedin') renderLiTracking();
-          else renderTasks();
-        });
+        btn.addEventListener('click', () => setAufgabenTab(btn.dataset.tasksTab));
       });
 
       // LINKEDIN PROFILE SUB-TABS

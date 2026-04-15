@@ -1027,6 +1027,9 @@
         <!-- My Day Bar -->
         <div id="dashboardMyDayBar"></div>
 
+        <!-- Boards Widget -->
+        <div id="dashboardBoardsWidget" style="display:none; margin-bottom:16px;"></div>
+
         <!-- Filter Card -->
         <div class="card" style="margin-bottom:16px;">
           <div class="card-content" style="padding:16px;">
@@ -1133,9 +1136,11 @@
           <button class="btn primary" onclick="openTaskModal()">+ Neue Aufgabe</button>
         </div>
 
-        <!-- Tabs: Aufgaben / Auswertung / LinkedIn Tracking -->
+        <!-- Tabs: Aufgaben / Boards / Vorlagen / Auswertung / LinkedIn Tracking -->
         <div style="display:flex; gap:0; margin-bottom:16px; border-bottom:1px solid var(--line);">
           <button class="analytics-tab active" data-tasks-tab="list" style="border-bottom:2px solid var(--accent); margin-bottom:-1px;">📋 Aufgaben</button>
+          <button class="analytics-tab" data-tasks-tab="boards" style="margin-bottom:-1px;">📁 Boards</button>
+          <button class="analytics-tab" data-tasks-tab="vorlagen" style="margin-bottom:-1px;">📄 Vorlagen</button>
           <button class="analytics-tab" data-tasks-tab="analytics" style="margin-bottom:-1px;">📊 Auswertung</button>
           <button class="analytics-tab" data-tasks-tab="linkedin" style="margin-bottom:-1px;">📈 LinkedIn Tracking</button>
         </div>
@@ -1186,6 +1191,17 @@
           </div>
           <!-- Task list -->
           <div id="aufgabenListe" style="display:grid; gap:10px;"></div>
+        </div>
+
+        <!-- BOARDS TAB -->
+        <div id="aufgabenBoardsTab" style="display:none;">
+          <div id="aufgabenBoardsView"></div>
+          <div id="aufgabenBoardsKanbanView" style="display:none;"></div>
+        </div>
+
+        <!-- VORLAGEN TAB -->
+        <div id="aufgabenVorlagenTab" style="display:none;">
+          <div id="aufgabenVorlagenView"></div>
         </div>
 
         <!-- ANALYTICS TAB -->
@@ -2950,14 +2966,102 @@
             </div>
           </div>
           <div>
+            <label class="label">Board</label>
+            <select id="taskBoardId" class="input-field" style="width:100%;">
+              <option value="">Kein Board</option>
+            </select>
+          </div>
+          <div>
             <label class="label">Notizen</label>
             <textarea id="taskNotes" class="input-field" rows="2" placeholder="Weitere Notizen..." style="width:100%;resize:vertical;"></textarea>
+          </div>
+          <!-- Subtask Editor -->
+          <div>
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+              <label class="label" style="margin:0;">Teilschritte</label>
+              <div style="display:flex; gap:6px; align-items:center;">
+                <select id="taskSubtaskTemplateSelect" class="input-field" style="font-size:12px; padding:3px 6px;" onchange="applySelectedTemplate()">
+                  <option value="">Vorlage anwenden...</option>
+                </select>
+                <button type="button" class="btn" style="font-size:12px; padding:4px 10px;" onclick="addModalSubtask()">+ Teilschritt</button>
+              </div>
+            </div>
+            <div id="taskSubtaskEditor" style="display:flex; flex-direction:column; gap:4px;"></div>
           </div>
         </div>
       </div>
       <div class="modal-footer">
         <button class="btn" onclick="closeTaskModal()">Abbrechen</button>
         <button class="btn primary" onclick="saveTaskFromModal()">💾 Speichern</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Board Modal -->
+  <div id="boardModal" class="modal">
+    <div class="modal-content" style="max-width:480px;">
+      <div class="modal-header">
+        <h2 id="boardModalTitle">Neues Board</h2>
+        <button onclick="closeBoardModal()" class="modal-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="boardEditId">
+        <div style="display:grid; gap:12px;">
+          <div>
+            <label class="label">Name *</label>
+            <input type="text" id="boardName" class="input-field" placeholder="Board-Name" style="width:100%;">
+          </div>
+          <div style="display:grid; grid-template-columns:auto 1fr; gap:12px; align-items:end;">
+            <div>
+              <label class="label">Farbe</label>
+              <input type="color" id="boardColor" class="input-field" value="#3b82f6" style="width:60px; height:36px; padding:2px; cursor:pointer;">
+            </div>
+            <div>
+              <label class="label">Beschreibung</label>
+              <input type="text" id="boardDescription" class="input-field" placeholder="Optional..." style="width:100%;">
+            </div>
+          </div>
+          <div>
+            <label class="label">Standard-Vorlage (Teilschritte)</label>
+            <select id="boardTemplateId" class="input-field" style="width:100%;">
+              <option value="">Keine Vorlage</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="closeBoardModal()">Abbrechen</button>
+        <button class="btn primary" onclick="saveBoardFromModal()">💾 Speichern</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Checklist Template Modal -->
+  <div id="checklistTemplateModal" class="modal">
+    <div class="modal-content" style="max-width:480px;">
+      <div class="modal-header">
+        <h2 id="cltModalTitle">Neue Vorlage</h2>
+        <button onclick="closeChecklistTemplateModal()" class="modal-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="cltEditId">
+        <div style="display:grid; gap:12px;">
+          <div>
+            <label class="label">Name *</label>
+            <input type="text" id="cltName" class="input-field" placeholder="Vorlagen-Name" style="width:100%;">
+          </div>
+          <div>
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+              <label class="label" style="margin:0;">Punkte</label>
+              <button type="button" class="btn" style="font-size:12px; padding:4px 10px;" onclick="addCltItem()">+ Punkt</button>
+            </div>
+            <div id="cltItemsEditor" style="display:flex; flex-direction:column; gap:4px;"></div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="closeChecklistTemplateModal()">Abbrechen</button>
+        <button class="btn primary" onclick="saveChecklistTemplateFromModal()">💾 Speichern</button>
       </div>
     </div>
   </div>
