@@ -61,7 +61,8 @@
       boardsSubView: 'list',
       _modalSubtasks: [],
       _cltItems: [],
-      _boardModalItems: [],
+      _btplTasks: [],
+      boardTemplates: [],
       liTracking: { profile: 'company' },
       liSnapshots: [],
       liPosts: [],
@@ -212,6 +213,10 @@
       localStorage.setItem('phChecklistTemplates', JSON.stringify(state.checklistTemplates));
       if (currentUser) syncToFirebase('checklistTemplates', state.checklistTemplates);
     }
+    function saveBoardTemplates() {
+      localStorage.setItem('phBoardTemplates', JSON.stringify(state.boardTemplates));
+      if (currentUser) syncToFirebase('boardTemplates', state.boardTemplates);
+    }
     function saveTaskTypes() {
       localStorage.setItem('phTaskTypes', JSON.stringify(state.taskTypes));
       if (currentUser) syncToFirebase('taskTypes', state.taskTypes);
@@ -287,6 +292,8 @@
       if (checklistTemplates) state.checklistTemplates = JSON.parse(checklistTemplates);
       const taskTypes = localStorage.getItem('phTaskTypes');
       if (taskTypes) state.taskTypes = JSON.parse(taskTypes);
+      const boardTemplates = localStorage.getItem('phBoardTemplates');
+      if (boardTemplates) state.boardTemplates = JSON.parse(boardTemplates);
 
       const liSnapshots = localStorage.getItem('phliSnapshots');
       if (liSnapshots) state.liSnapshots = JSON.parse(liSnapshots);
@@ -8468,130 +8475,43 @@ www.livetour.ch`;
       document.getElementById('boardName').value        = board?.name || '';
       document.getElementById('boardColor').value       = board?.color || '#3b82f6';
       document.getElementById('boardDescription').value = board?.description || '';
-
-      // populate "Vorlage laden" dropdown
-      const loadSel = document.getElementById('boardLoadTemplate');
-      if (loadSel) {
-        loadSel.innerHTML = '<option value="">Vorlage laden...</option>' +
-          state.checklistTemplates.map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('');
-        loadSel.value = '';
+      const tplSel = document.getElementById('boardTemplateId');
+      if (tplSel) {
+        const cur = board?.templateId || '';
+        tplSel.innerHTML = '<option value="">Keine Vorlage</option>' +
+          state.checklistTemplates.map(t => `<option value="${t.id}"${t.id===cur?' selected':''}>${escapeHtml(t.name)}</option>`).join('');
+        tplSel.value = cur;
       }
-
-      // load existing template items (if board already has one)
-      const linkedTplId = board?.templateId || '';
-      document.getElementById('boardTemplateId').value = linkedTplId;
-      const linkedTpl = linkedTplId ? state.checklistTemplates.find(t => t.id === linkedTplId) : null;
-      state._boardModalItems = linkedTpl ? linkedTpl.items.map(i => ({...i})) : [];
-      _renderBoardModalItems();
-
-      // show which template is linked
-      _updateBoardModalTemplateName();
       modal.style.display = 'flex';
     }
 
     function closeBoardModal() { const m=document.getElementById('boardModal'); if(m) m.style.display='none'; }
 
-    function _renderBoardModalItems() {
-      const el = document.getElementById('boardModalItemsEditor');
-      if (!el) return;
-      const items = (state._boardModalItems || []).slice().sort((a,b) => (a.order??0)-(b.order??0));
-      el.innerHTML = (items.length === 0
-        ? '<div style="color:var(--muted);font-size:12px;padding:4px 0;">Noch keine Punkte — oder Vorlage laden.</div>'
-        : items.map(item => `
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
-            <span style="font-size:12px;color:var(--muted);width:22px;text-align:right;flex-shrink:0;">${(item.order||0)+1}.</span>
-            <input type="text" value="${(item.text||'').replace(/"/g,'&quot;')}" class="input-field"
-              style="flex:1;padding:4px 8px;font-size:12px;"
-              oninput="updateBoardModalItemText('${item.id}',this.value)" placeholder="Schritt…">
-            <button class="btn" style="padding:2px 8px;font-size:11px;color:var(--danger);" onclick="removeBoardModalItem('${item.id}')">✕</button>
-          </div>`).join(''));
-    }
-
-    function _updateBoardModalTemplateName() {
-      const el  = document.getElementById('boardModalTemplateName');
-      if (!el) return;
-      const id  = document.getElementById('boardTemplateId')?.value;
-      const tpl = id ? state.checklistTemplates.find(t => t.id === id) : null;
-      if (tpl) { el.textContent = `Verknüpft mit Vorlage: "${tpl.name}"`; el.style.display = ''; }
-      else { el.style.display = 'none'; }
-    }
-
-    window.loadBoardTemplateItems = function(tplId) {
-      const tpl = tplId ? state.checklistTemplates.find(t => t.id === tplId) : null;
-      state._boardModalItems = tpl ? tpl.items.map(i => ({...i})) : [];
-      // link the loaded template
-      const hiddenId = document.getElementById('boardTemplateId');
-      if (hiddenId) hiddenId.value = tplId || '';
-      _renderBoardModalItems();
-      _updateBoardModalTemplateName();
-      // reset dropdown back to placeholder
-      const sel = document.getElementById('boardLoadTemplate');
-      if (sel) sel.value = '';
-    };
-
-    window.addBoardModalItem = function() {
-      const id = 'bitem_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
-      (state._boardModalItems = state._boardModalItems || []).push({ id, text: '', order: state._boardModalItems.length });
-      _renderBoardModalItems();
-    };
-
-    window.removeBoardModalItem = function(id) {
-      state._boardModalItems = (state._boardModalItems || []).filter(i => i.id !== id)
-        .map((i, idx) => ({ ...i, order: idx }));
-      _renderBoardModalItems();
-    };
-
-    window.updateBoardModalItemText = function(id, text) {
-      const item = (state._boardModalItems || []).find(i => i.id === id);
-      if (item) item.text = text;
-    };
-
     function saveBoardFromModal() {
       const name = (document.getElementById('boardName')?.value || '').trim();
       if (!name) { showToast('❌ Board-Name ist Pflichtfeld'); return; }
-      const boardId  = document.getElementById('boardEditId')?.value;
-      const now      = new Date().toISOString();
-      const items    = (state._boardModalItems || []).filter(i => i.text?.trim());
-      let   linkedId = document.getElementById('boardTemplateId')?.value || null;
-
-      // Persist inline items: create or update checklist template
-      if (items.length > 0) {
-        if (linkedId) {
-          // update existing template
-          const tpl = state.checklistTemplates.find(t => t.id === linkedId);
-          if (tpl) { tpl.items = items; tpl.updatedAt = now; }
-        } else {
-          // create new template named after the board
-          linkedId = 'tpl_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
-          state.checklistTemplates.push({ id: linkedId, name: `Vorlage: ${name}`, items, createdAt: now, updatedAt: now });
-        }
-        saveChecklistTemplates();
-      } else if (!items.length && linkedId) {
-        // items cleared → unlink (but keep the template itself)
-        linkedId = null;
-      }
-
+      const boardId = document.getElementById('boardEditId')?.value;
+      const now = new Date().toISOString();
       if (boardId) {
         const b = state.boards.find(x => x.id === boardId);
         if (!b) return;
         b.name        = name;
         b.color       = document.getElementById('boardColor')?.value || '#3b82f6';
         b.description = (document.getElementById('boardDescription')?.value || '').trim();
-        b.templateId  = linkedId;
+        b.templateId  = document.getElementById('boardTemplateId')?.value || null;
         b.updatedAt   = now;
       } else {
         state.boards.push({
           id: 'board_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
           name, color: document.getElementById('boardColor')?.value || '#3b82f6',
           description: (document.getElementById('boardDescription')?.value || '').trim(),
-          templateId: linkedId,
+          templateId: document.getElementById('boardTemplateId')?.value || null,
           createdAt: now, updatedAt: now
         });
       }
       saveBoards();
       closeBoardModal();
       renderBoards();
-      renderTemplatesList_Checklist();
       renderDashboardBoards();
       showToast(boardId ? '✅ Board aktualisiert' : '✅ Board erstellt');
     }
@@ -8685,14 +8605,43 @@ www.livetour.ch`;
     function renderTemplatesList_Checklist() {
       const el = document.getElementById('aufgabenVorlagenView');
       if (!el) return;
-      const tplCards = state.checklistTemplates.length === 0
-        ? '<div style="text-align:center;padding:40px;color:var(--muted);font-size:13px;">Noch keine Vorlagen erstellt. Klicke auf \"+ Neue Vorlage\".</div>'
+
+      // ── Board-Vorlagen ─────────────────────────────────────────────────────
+      const btplCards = state.boardTemplates.length === 0
+        ? '<div style="text-align:center;padding:24px;color:var(--muted);font-size:13px;">Noch keine Board-Vorlagen. Klicke auf \"+ Neue Board-Vorlage\".</div>'
+        : state.boardTemplates.map(t => {
+            const taskCount = (t.taskTemplates || []).length;
+            return `<div class="card" style="border-left:4px solid ${t.color||'#3b82f6'};margin-bottom:10px;">
+              <div class="card-content" style="padding:14px 16px;">
+                <div style="display:flex;align-items:flex-start;gap:12px;">
+                  <div style="flex:1;min-width:0;">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                      <div style="width:11px;height:11px;border-radius:50%;background:${t.color||'#3b82f6'};flex-shrink:0;"></div>
+                      <span style="font-size:15px;font-weight:700;">${escapeHtml(t.name)}</span>
+                    </div>
+                    ${t.description?`<div style="font-size:12px;color:var(--muted);margin-bottom:6px;">${escapeHtml(t.description)}</div>`:''}
+                    <div style="font-size:12px;color:var(--muted);margin-bottom:6px;">${taskCount} Aufgabe${taskCount!==1?'n':''} vordefiniert</div>
+                    <div>${(t.taskTemplates||[]).slice(0,4).map(tt=>`<span style="display:inline-block;background:var(--accent-soft);color:var(--accent);padding:1px 7px;border-radius:4px;margin:2px;font-size:11px;">${escapeHtml(tt.title||'–')}</span>`).join('')}${taskCount>4?`<span style="font-size:11px;color:var(--muted);"> +${taskCount-4} weitere</span>`:''}</div>
+                  </div>
+                  <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;">
+                    <button class="btn primary" style="padding:4px 10px;font-size:11px;" onclick="openBoardInstantiateModal('${t.id}')">🚀 Board erstellen</button>
+                    <button class="btn" style="padding:4px 10px;font-size:11px;" onclick="openBoardTemplateModal('${t.id}')">✏️</button>
+                    <button class="btn" style="padding:4px 10px;font-size:11px;color:var(--danger);" onclick="deleteBoardTemplate('${t.id}')">🗑️</button>
+                  </div>
+                </div>
+              </div>
+            </div>`;
+          }).join('');
+
+      // ── Checklisten-Vorlagen ───────────────────────────────────────────────
+      const cltCards = state.checklistTemplates.length === 0
+        ? '<div style="text-align:center;padding:24px;color:var(--muted);font-size:13px;">Noch keine Checklisten-Vorlagen. Klicke auf \"+ Neue Vorlage\".</div>'
         : state.checklistTemplates.map(t => `
           <div class="card" style="margin-bottom:10px;">
             <div class="card-content" style="padding:14px 16px;">
               <div style="display:flex;align-items:flex-start;gap:12px;">
                 <div style="flex:1;min-width:0;">
-                  <div style="font-size:15px;font-weight:700;margin-bottom:4px;">📄 ${escapeHtml(t.name)}</div>
+                  <div style="font-size:15px;font-weight:700;margin-bottom:4px;">📋 ${escapeHtml(t.name)}</div>
                   <div style="font-size:12px;color:var(--muted);margin-bottom:6px;">${t.items.length} Punkt${t.items.length!==1?'e':''}</div>
                   <div>${t.items.slice(0,4).map(i=>`<span style="display:inline-block;background:var(--accent-soft);color:var(--accent);padding:1px 7px;border-radius:4px;margin:2px;font-size:11px;">${escapeHtml(i.text)}</span>`).join('')}${t.items.length>4?`<span style="font-size:11px;color:var(--muted);"> +${t.items.length-4} weitere</span>`:''}</div>
                 </div>
@@ -8703,12 +8652,18 @@ www.livetour.ch`;
               </div>
             </div>
           </div>`).join('');
+
       el.innerHTML = `
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
-          <div style="font-size:16px;font-weight:700;">📄 Checklisten-Vorlagen</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <div style="font-size:16px;font-weight:700;">📁 Board-Vorlagen</div>
+          <button class="btn primary" onclick="openBoardTemplateModal()">+ Neue Board-Vorlage</button>
+        </div>
+        ${btplCards}
+        <div style="display:flex;justify-content:space-between;align-items:center;margin:20px 0 10px;">
+          <div style="font-size:16px;font-weight:700;">📋 Checklisten-Vorlagen</div>
           <button class="btn primary" onclick="openChecklistTemplateModal()">+ Neue Vorlage</button>
         </div>
-        ${tplCards}`;
+        ${cltCards}`;
     }
 
     function openChecklistTemplateModal(tplId) {
@@ -8782,6 +8737,176 @@ www.livetour.ch`;
       renderTemplatesList_Checklist(); renderBoards();
       showToast('🗑️ Vorlage gelöscht');
     }
+
+    // ─── BOARD TEMPLATES MODULE ──────────────────────────────────────────────────
+
+    function openBoardTemplateModal(btplId) {
+      const modal = document.getElementById('boardTemplateModal');
+      if (!modal) return;
+      document.getElementById('btplEditId').value = btplId || '';
+      document.getElementById('btplModalTitle').textContent = btplId ? 'Board-Vorlage bearbeiten' : 'Neue Board-Vorlage';
+      const tpl = btplId ? state.boardTemplates.find(t => t.id === btplId) : null;
+      document.getElementById('btplName').value        = tpl?.name || '';
+      document.getElementById('btplColor').value       = tpl?.color || '#3b82f6';
+      document.getElementById('btplDescription').value = tpl?.description || '';
+      state._btplTasks = tpl ? (tpl.taskTemplates || []).map(t => ({...t})) : [];
+      _renderBtplTasks();
+      modal.style.display = 'flex';
+    }
+
+    function closeBoardTemplateModal() { const m=document.getElementById('boardTemplateModal'); if(m) m.style.display='none'; }
+
+    function saveBoardTemplateFromModal() {
+      const name = (document.getElementById('btplName')?.value || '').trim();
+      if (!name) { showToast('❌ Name ist Pflichtfeld'); return; }
+      const btplId = document.getElementById('btplEditId')?.value;
+      const now    = new Date().toISOString();
+      const tasks  = (state._btplTasks || []).filter(t => t.title?.trim()).map((t,i) => ({...t, order:i}));
+      if (btplId) {
+        const tpl = state.boardTemplates.find(t => t.id === btplId);
+        if (!tpl) return;
+        tpl.name          = name;
+        tpl.color         = document.getElementById('btplColor')?.value || '#3b82f6';
+        tpl.description   = (document.getElementById('btplDescription')?.value || '').trim();
+        tpl.taskTemplates = tasks;
+        tpl.updatedAt     = now;
+      } else {
+        state.boardTemplates.push({
+          id: 'btpl_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+          name, color: document.getElementById('btplColor')?.value || '#3b82f6',
+          description: (document.getElementById('btplDescription')?.value || '').trim(),
+          taskTemplates: tasks,
+          createdAt: now, updatedAt: now
+        });
+      }
+      saveBoardTemplates();
+      closeBoardTemplateModal();
+      renderTemplatesList_Checklist();
+      showToast(btplId ? '✅ Board-Vorlage aktualisiert' : '✅ Board-Vorlage erstellt');
+    }
+
+    function deleteBoardTemplate(btplId) {
+      if (!confirm('Board-Vorlage löschen? Bestehende Boards werden nicht beeinflusst.')) return;
+      state.boardTemplates = state.boardTemplates.filter(t => t.id !== btplId);
+      saveBoardTemplates();
+      renderTemplatesList_Checklist();
+      showToast('🗑️ Board-Vorlage gelöscht');
+    }
+
+    function _renderBtplTasks() {
+      const el = document.getElementById('btplTasksEditor');
+      if (!el) return;
+      const tasks = (state._btplTasks || []).slice().sort((a,b) => (a.order??0)-(b.order??0));
+      if (tasks.length === 0) {
+        el.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:8px 0;">Noch keine Aufgaben definiert.</div>';
+        return;
+      }
+      const cltOpts = '<option value="">Keine Checklisten-Vorlage</option>' +
+        state.checklistTemplates.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+      const prioColors = { hoch:'#ef4444', mittel:'#f59e0b', tief:'#22c55e' };
+      el.innerHTML = tasks.map((t,i) => `
+        <div style="background:var(--bg);border:1px solid var(--line);border-left:3px solid ${prioColors[t.priority]||'#888'};border-radius:8px;padding:10px 12px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+            <span style="font-size:12px;color:var(--muted);flex-shrink:0;">#${i+1}</span>
+            <input type="text" value="${(t.title||'').replace(/"/g,'&quot;')}" class="input-field"
+              style="flex:1;padding:4px 8px;font-size:13px;font-weight:600;"
+              oninput="updateBtplTaskField('${t.id}','title',this.value)" placeholder="Aufgaben-Titel *">
+            <button class="btn" style="padding:2px 8px;font-size:11px;color:var(--danger);flex-shrink:0;" onclick="removeBtplTask('${t.id}')">✕</button>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+            <div>
+              <div style="font-size:11px;color:var(--muted);margin-bottom:3px;">Priorität</div>
+              <select class="input-field" style="width:100%;font-size:12px;padding:3px 6px;"
+                onchange="updateBtplTaskField('${t.id}','priority',this.value)">
+                <option value="hoch"${t.priority==='hoch'?' selected':''}>🔴 Hoch</option>
+                <option value="mittel"${t.priority==='mittel'?' selected':''}>🟡 Mittel</option>
+                <option value="tief"${t.priority==='tief'?' selected':''}>🟢 Tief</option>
+              </select>
+            </div>
+            <div>
+              <div style="font-size:11px;color:var(--muted);margin-bottom:3px;">Status</div>
+              <select class="input-field" style="width:100%;font-size:12px;padding:3px 6px;"
+                onchange="updateBtplTaskField('${t.id}','status',this.value)">
+                <option value="idee"${t.status==='idee'?' selected':''}>💡 Idee</option>
+                <option value="geplant"${t.status==='geplant'?' selected':''}>📅 Geplant</option>
+                <option value="inbearbeitung"${t.status==='inbearbeitung'?' selected':''}>⚙️ In Bearbeitung</option>
+              </select>
+            </div>
+            <div>
+              <div style="font-size:11px;color:var(--muted);margin-bottom:3px;">Checklisten-Vorlage</div>
+              <select class="input-field" style="width:100%;font-size:12px;padding:3px 6px;"
+                onchange="updateBtplTaskField('${t.id}','checklistTemplateId',this.value)">
+                ${cltOpts.replace(`value="${t.checklistTemplateId||''}"`,`value="${t.checklistTemplateId||''}" selected`)}
+              </select>
+            </div>
+          </div>
+        </div>`).join('');
+    }
+
+    window.addBtplTask = function() {
+      const id = 'ttempl_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
+      (state._btplTasks = state._btplTasks || []).push({ id, title:'', type:'', priority:'mittel', status:'geplant', checklistTemplateId:null, order: state._btplTasks.length });
+      _renderBtplTasks();
+    };
+
+    window.removeBtplTask = function(id) {
+      state._btplTasks = (state._btplTasks || []).filter(t => t.id !== id).map((t,i) => ({...t, order:i}));
+      _renderBtplTasks();
+    };
+
+    window.updateBtplTaskField = function(id, field, value) {
+      const t = (state._btplTasks || []).find(t => t.id === id);
+      if (t) { t[field] = value || null; if (field === 'priority') _renderBtplTasks(); }
+    };
+
+    window.openBoardInstantiateModal = function(btplId) {
+      const modal = document.getElementById('boardInstantiateModal');
+      if (!modal) return;
+      const tpl = state.boardTemplates.find(t => t.id === btplId);
+      if (!tpl) return;
+      document.getElementById('boardInstantiateTplId').value = btplId;
+      document.getElementById('boardInstantiateName').value  = tpl.name;
+      const taskCount = (tpl.taskTemplates || []).length;
+      document.getElementById('boardInstantiateInfo').textContent =
+        `Erstellt ein neues Board auf Basis von „${tpl.name}" mit ${taskCount} vordefinierten Aufgabe${taskCount!==1?'n':''}.`;
+      modal.style.display = 'flex';
+      setTimeout(() => document.getElementById('boardInstantiateName')?.select(), 50);
+    };
+
+    window.closeBoardInstantiateModal = function() {
+      const m = document.getElementById('boardInstantiateModal'); if(m) m.style.display='none';
+    };
+
+    window.createBoardFromTemplate = function() {
+      const btplId = document.getElementById('boardInstantiateTplId')?.value;
+      const name   = (document.getElementById('boardInstantiateName')?.value || '').trim();
+      if (!name) { showToast('❌ Board-Name ist Pflichtfeld'); return; }
+      const tpl = state.boardTemplates.find(t => t.id === btplId);
+      if (!tpl) return;
+      const now     = new Date().toISOString();
+      const boardId = 'board_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+      state.boards.push({ id: boardId, name, color: tpl.color || '#3b82f6', description: tpl.description || '', templateId: null, createdAt: now, updatedAt: now });
+
+      (tpl.taskTemplates || []).forEach((tt, i) => {
+        const subtasks = tt.checklistTemplateId
+          ? (state.checklistTemplates.find(c => c.id === tt.checklistTemplateId)?.items || [])
+              .map(item => ({ id: 'sub_' + Date.now() + '_' + Math.random().toString(36).substr(2,4) + '_' + i, text: item.text, done: false, completedAt: null, order: item.order }))
+          : [];
+        state.tasks.push({
+          id:          'task_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6) + '_' + i,
+          boardId, title: tt.title || 'Aufgabe', type: tt.type || 'sonstiges',
+          status: tt.status || 'geplant', priority: tt.priority || 'mittel',
+          description: '', notes: '', dueDate: '', eventDate: '', eventLocation: '',
+          subtasks, createdAt: now, updatedAt: now
+        });
+      });
+
+      saveBoards(); saveTasks();
+      closeBoardInstantiateModal();
+      setAufgabenTab('boards');
+      renderBoards(); renderDashboardBoards();
+      showToast(`✅ Board „${name}" mit ${(tpl.taskTemplates||[]).length} Aufgaben erstellt`);
+    };
 
     // ─── DASHBOARD BOARDS WIDGET ─────────────────────────────────────────────────
 

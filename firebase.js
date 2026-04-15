@@ -796,6 +796,13 @@ onAuthStateChanged(auth, async (user) => {
         ]).handler,
         (e) => console.error('Firebase checklistTemplates error:', e));
 
+      // boardTemplates
+      onValue(ref(db, `orgs/${orgId}/boardTemplates`),
+        makeSyncHandler(`orgs/${orgId}/boardTemplates`, 'phBoardTemplates', 'boardTemplates', [
+          () => renderTemplatesList_Checklist?.()
+        ]).handler,
+        (e) => console.error('Firebase boardTemplates error:', e));
+
       // taskTypes
       onValue(ref(db, `orgs/${orgId}/taskTypes`),
         makeSyncHandler(`orgs/${orgId}/taskTypes`, 'phTaskTypes', 'taskTypes', [
