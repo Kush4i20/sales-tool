@@ -2346,14 +2346,20 @@ async function hkmExecuteImport(clean, selectedDupes, resultEl, fileInput, parse
   const toImport = [...clean, ...selectedDupes];
   let imported = 0, failed = 0, crmLinked = 0;
   for (const lead of toImport) {
-    try { await window.saveHkmLead(lead); imported++;
+    try {
       if (lead.linked_contact_id) {
         const contact = (state.contacts || []).find(c => c.id === lead.linked_contact_id);
         if (contact) {
+          // Übernahme des CRM-Zuständigen: memberId → VisuMat-UID
+          if (contact.memberId) {
+            const uid = hkmGetUidByMemberId(contact.memberId);
+            if (uid) lead.assigned_to = uid;
+          }
           addNotesHistory(contact, `📦 VisuMat Lead importiert: ${lead.projektname || lead.firma || 'Unbekannt'}`, contact.status);
           crmLinked++;
         }
       }
+      await window.saveHkmLead(lead); imported++;
     } catch(e) { failed++; }
   }
   if (crmLinked > 0) saveContacts();
