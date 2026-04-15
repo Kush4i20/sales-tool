@@ -8551,15 +8551,61 @@ www.livetour.ch`;
       const board = state.boards.find(b => b.id === state.activeBoardId);
       if (!board) { el.innerHTML = ''; return; }
       const COLS = [
-        { key:'offen',    label:'Offen',          statuses:['idee','geplant'],       color:'#3b82f6' },
-        { key:'inprog',   label:'In Bearbeitung',  statuses:['inbearbeitung'],         color:'#f59e0b' },
-        { key:'erledigt', label:'Erledigt',         statuses:['erledigt','abgesagt'],   color:'#22c55e' }
+        { key:'offen',    label:'Offen',          statuses:['idee','geplant'],     color:'#3b82f6' },
+        { key:'inprog',   label:'In Bearbeitung',  statuses:['inbearbeitung'],       color:'#f59e0b' },
+        { key:'erledigt', label:'Erledigt',         statuses:['erledigt','abgesagt'], color:'#22c55e' }
       ];
-      const tasks = state.tasks.filter(t => t.boardId === state.activeBoardId);
-      const today = new Date().toISOString().split('T')[0];
-      const fmt   = d => new Date(d+'T00:00:00').toLocaleDateString('de-CH',{day:'2-digit',month:'2-digit'});
-      const po    = { hoch:0, mittel:1, tief:2 };
+      const tasks   = state.tasks.filter(t => t.boardId === state.activeBoardId);
+      const today   = new Date().toISOString().split('T')[0];
+      const fmt     = d => new Date(d+'T00:00:00').toLocaleDateString('de-CH',{day:'2-digit',month:'2-digit'});
+      const po      = { hoch:0, mittel:1, tief:2 };
       const boardId = state.activeBoardId || '';
+
+      const renderCard = (t, colKey) => {
+        const subs  = t.subtasks || [];
+        const sd    = subs.filter(s => s.done).length;
+        const isOv  = t.dueDate && t.dueDate < today && colKey !== 'erledigt';
+        const prio  = TASK_PRIORITY[t.priority] || { color:'#888' };
+        const sp    = subs.length > 0 ? Math.round((sd / subs.length) * 100) : 0;
+        const isDone = colKey === 'erledigt';
+
+        // quick-action buttons depending on column
+        const actionBtns = isDone
+          ? `<button class="btn" style="font-size:11px;padding:2px 8px;" title="Zurücksetzen"
+               onclick="event.stopPropagation();kanbanSetStatus('${t.id}','geplant')">↩ Zurücksetzen</button>`
+          : colKey === 'inprog'
+          ? `<button class="btn" style="font-size:11px;padding:2px 8px;background:#22c55e;color:#fff;border-color:#22c55e;"
+               onclick="event.stopPropagation();kanbanSetStatus('${t.id}','erledigt')">✅ Erledigt</button>`
+          : `<button class="btn" style="font-size:11px;padding:2px 8px;background:#f59e0b;color:#fff;border-color:#f59e0b;"
+               onclick="event.stopPropagation();kanbanSetStatus('${t.id}','inbearbeitung')">▶ In Bearbeitung</button>`;
+
+        // subtask list
+        const subsList = subs.length === 0 ? '' : `
+          <div style="margin-top:8px;display:flex;flex-direction:column;gap:4px;" onclick="event.stopPropagation()">
+            ${subs.map(s => `
+              <label style="display:flex;align-items:flex-start;gap:7px;cursor:pointer;font-size:12px;line-height:1.4;">
+                <input type="checkbox" ${s.done?'checked':''} style="accent-color:var(--accent);margin-top:2px;flex-shrink:0;"
+                  onchange="toggleSubtask('${t.id}','${s.id}',this.checked)">
+                <span style="${s.done?'text-decoration:line-through;color:var(--muted);':''}">${escapeHtml(s.text||'–')}</span>
+              </label>`).join('')}
+          </div>`;
+
+        return `<div style="background:var(--card);border:1px solid var(--line);border-left:3px solid ${prio.color};border-radius:6px;padding:10px 12px;cursor:pointer;${isDone?'opacity:.7':''}"
+             onclick="openTaskModal('${t.id}')">
+          <div style="font-size:13px;font-weight:600;margin-bottom:5px;${isDone?'text-decoration:line-through;color:var(--muted);':''}">${escapeHtml(t.title)}</div>
+          ${t.dueDate ? `<div style="font-size:11px;color:${isOv?'#ef4444':'var(--muted)'};margin-bottom:4px;">${isOv?'⚠️ überfällig · ':'📅 '}${fmt(t.dueDate)}</div>` : ''}
+          ${subs.length > 0 ? `
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+              <div style="flex:1;height:3px;background:var(--line);border-radius:2px;overflow:hidden;">
+                <div style="height:100%;width:${sp}%;background:${sp===100?'#22c55e':'var(--accent)'};border-radius:2px;transition:width .2s;"></div>
+              </div>
+              <span style="font-size:11px;color:var(--muted);white-space:nowrap;">${sd}/${subs.length}</span>
+            </div>` : ''}
+          ${subsList}
+          <div style="margin-top:8px;" onclick="event.stopPropagation()">${actionBtns}</div>
+        </div>`;
+      };
+
       el.innerHTML = `
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
           <button class="btn" onclick="closeBoardKanban()">← Zurück</button>
@@ -8573,24 +8619,9 @@ www.livetour.ch`;
               ${col.label} <span style="font-weight:400;color:var(--muted);">(${colTasks.length})</span>
             </div>
             <div style="display:grid;gap:8px;">
-              ${colTasks.length===0
+              ${colTasks.length === 0
                 ? `<div style="color:var(--muted);font-size:12px;text-align:center;padding:12px 0;">Keine Aufgaben</div>`
-                : colTasks.map(t => {
-                    const subs=t.subtasks||[]; const sd=subs.filter(s=>s.done).length;
-                    const isOv=t.dueDate&&t.dueDate<today&&col.key!=='erledigt';
-                    const prio=TASK_PRIORITY[t.priority]||{color:'#888'};
-                    const sp=subs.length>0?Math.round((sd/subs.length)*100):0;
-                    return `<div style="background:var(--card);border:1px solid var(--line);border-left:3px solid ${prio.color};border-radius:6px;padding:10px 12px;cursor:pointer;"
-                         onclick="openTaskModal('${t.id}')">
-                      <div style="font-size:13px;font-weight:600;margin-bottom:5px;">${escapeHtml(t.title)}</div>
-                      <div style="display:flex;gap:8px;flex-wrap:wrap;font-size:11px;color:var(--muted);">
-                        ${t.dueDate?`<span style="color:${isOv?'#ef4444':'var(--muted)'};">${isOv?'⚠️ ':'📅 '}${fmt(t.dueDate)}</span>`:''}
-                        ${subs.length>0?`<span>${sd}/${subs.length} ✓</span>`:''}
-                      </div>
-                      ${subs.length>0?`<div style="height:3px;background:var(--line);border-radius:2px;margin-top:6px;overflow:hidden;"><div style="height:100%;width:${sp}%;background:${sp===100?'#22c55e':'var(--accent)'};border-radius:2px;"></div></div>`:''}
-                    </div>`;
-                  }).join('')
-              }
+                : colTasks.map(t => renderCard(t, col.key)).join('')}
             </div>
             <button class="btn" style="width:100%;margin-top:10px;font-size:12px;"
               onclick="(function(){openTaskModal();setTimeout(function(){var s=document.getElementById('taskBoardId');if(s)s.value='${boardId}'},50)})()">
@@ -8599,6 +8630,17 @@ www.livetour.ch`;
           </div>`;
         }).join('') + `</div>`;
     }
+
+    window.kanbanSetStatus = function(taskId, status) {
+      const task = state.tasks.find(t => t.id === taskId);
+      if (!task) return;
+      task.status    = status;
+      task.updatedAt = new Date().toISOString();
+      if (status === 'erledigt') task.completedAt = task.updatedAt;
+      saveTasks();
+      renderBoardKanban();
+      renderDashboardBoards();
+    };
 
     // ─── CHECKLIST TEMPLATES MODULE ───────────────────────────────────────────────
 
