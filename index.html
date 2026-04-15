@@ -936,6 +936,16 @@
             <div id="uidMigrationResult" style="margin-top:12px;font-size:13px;display:none;padding:10px;border-radius:8px;"></div>
           </div>
         </div>
+        <div class="card">
+          <div class="card-head">
+            <h3 class="card-title">📋 Aufgaben-Typen</h3>
+            <div class="card-sub">Frei definierbare Typen für Aufgaben (Admin)</div>
+          </div>
+          <div class="card-content">
+            <div id="taskTypesSettingsCard"></div>
+          </div>
+        </div>
+
         </div><!-- end settingsTabAllgemein -->
 
         <!-- TAB: Import / Export -->
@@ -1155,11 +1165,6 @@
                   <label class="label">Typ</label>
                   <select id="taskFilterType" class="input-field" style="min-width:170px;">
                     <option value="all">Alle Typen</option>
-                    <option value="liUnternehmen">🏢 LinkedIn Unternehmen</option>
-                    <option value="liPersoenlich">👤 LinkedIn Persönlich</option>
-                    <option value="blog">📝 Blog</option>
-                    <option value="event">🎪 Event</option>
-                    <option value="sonstiges">📋 Sonstiges</option>
                   </select>
                 </div>
                 <div>
@@ -2914,14 +2919,9 @@
         <input type="hidden" id="taskEditId">
         <div style="display:grid; gap:12px;">
           <div>
-            <label class="label">Typ *</label>
-            <select id="taskType" class="input-field" style="width:100%;" onchange="toggleTaskEventFields()">
-              <option value="liUnternehmen">🏢 LinkedIn Unternehmen</option>
-              <option value="liPersoenlich">👤 LinkedIn Persönlich</option>
-              <option value="blog">📝 Blog</option>
-              <option value="event">🎪 Event</option>
-              <option value="sonstiges">📋 Sonstiges</option>
-            </select>
+            <label class="label">Typ</label>
+            <input type="text" id="taskType" list="taskTypeList" class="input-field" placeholder="Typ eingeben oder wählen..." style="width:100%;">
+            <datalist id="taskTypeList"></datalist>
           </div>
           <div>
             <label class="label">Titel *</label>
@@ -2955,7 +2955,7 @@
             <label class="label">Fälligkeitsdatum</label>
             <input type="date" id="taskDueDate" class="input-field" style="width:100%;">
           </div>
-          <div id="taskEventFields" style="display:none; grid-template-columns:1fr 1fr; gap:12px;">
+          <div id="taskEventFields" style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
             <div>
               <label class="label">Event-Datum</label>
               <input type="date" id="taskEventDate" class="input-field" style="width:100%;">

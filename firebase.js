@@ -796,6 +796,13 @@ onAuthStateChanged(auth, async (user) => {
         ]).handler,
         (e) => console.error('Firebase checklistTemplates error:', e));
 
+      // taskTypes
+      onValue(ref(db, `orgs/${orgId}/taskTypes`),
+        makeSyncHandler(`orgs/${orgId}/taskTypes`, 'phTaskTypes', 'taskTypes', [
+          () => renderTaskTypesSettings?.()
+        ]).handler,
+        (e) => console.error('Firebase taskTypes error:', e));
+
       // liSnapshots
       onValue(ref(db, `orgs/${orgId}/liSnapshots`), (snapshot) => {
         const remoteList = normalizeFirebaseArray(snapshot.val());

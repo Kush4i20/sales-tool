@@ -49,6 +49,7 @@
       analyticsModule: 'all',
       tasksTab: 'list',
       tasks: [],
+      taskTypes: [],
       boards: [],
       checklistTemplates: [],
       taskListShowCompleted: false,
@@ -210,6 +211,10 @@
       localStorage.setItem('phChecklistTemplates', JSON.stringify(state.checklistTemplates));
       if (currentUser) syncToFirebase('checklistTemplates', state.checklistTemplates);
     }
+    function saveTaskTypes() {
+      localStorage.setItem('phTaskTypes', JSON.stringify(state.taskTypes));
+      if (currentUser) syncToFirebase('taskTypes', state.taskTypes);
+    }
 
     function saveLiSnapshots() {
       localStorage.setItem('phliSnapshots', JSON.stringify(state.liSnapshots));
@@ -279,6 +284,8 @@
       if (boards) state.boards = JSON.parse(boards);
       const checklistTemplates = localStorage.getItem('phChecklistTemplates');
       if (checklistTemplates) state.checklistTemplates = JSON.parse(checklistTemplates);
+      const taskTypes = localStorage.getItem('phTaskTypes');
+      if (taskTypes) state.taskTypes = JSON.parse(taskTypes);
 
       const liSnapshots = localStorage.getItem('phliSnapshots');
       if (liSnapshots) state.liSnapshots = JSON.parse(liSnapshots);
@@ -315,6 +322,7 @@
       document.getElementById('settingsName').value = state.settings.name || '';
       document.getElementById('settingsCompany').value = state.settings.company || '';
       document.getElementById('settingsGuides').value = state.settings.guides || '';
+      renderTaskTypesSettings?.();
       if (typeof state.settings.enforceDealGovernance !== 'boolean') {
         state.settings.enforceDealGovernance = true;
       }
@@ -7653,13 +7661,36 @@ www.livetour.ch`;
 
     // ─── AUFGABEN MODULE ─────────────────────────────────────────────────────
 
-    const TASK_TYPES = {
-      liUnternehmen: '🏢 LinkedIn Unternehmen',
-      liPersoenlich: '👤 LinkedIn Persönlich',
-      blog: '📝 Blog',
-      event: '🎪 Event',
-      sonstiges: '📋 Sonstiges'
+    // Legacy-Lookup für alte Aufgaben mit code-basierten Typen
+    const TASK_TYPES_LEGACY = {
+      liUnternehmen: 'LinkedIn Unternehmen',
+      liPersoenlich: 'LinkedIn Persönlich',
+      blog: 'Blog',
+      event: 'Event',
+      sonstiges: 'Sonstiges'
     };
+    // Gibt den Anzeige-Namen eines Typs zurück (legacy-kompatibel)
+    function taskTypeLabel(type) { return TASK_TYPES_LEGACY[type] || type || '–'; }
+    // Effektive Typen: aus state oder Defaults
+    function getEffectiveTaskTypes() {
+      return (state.taskTypes && state.taskTypes.length > 0)
+        ? state.taskTypes
+        : ['LinkedIn Unternehmen', 'LinkedIn Persönlich', 'Blog', 'Event', 'Sonstiges'];
+    }
+    function _populateTaskTypeFilter() {
+      const sel = document.getElementById('taskFilterType');
+      if (!sel) return;
+      const cur = sel.value;
+      const fromTasks = [...new Set(state.tasks.map(t => t.type).filter(Boolean))];
+      const all = [...new Set([...getEffectiveTaskTypes(), ...fromTasks])];
+      sel.innerHTML = '<option value="all">Alle Typen</option>' +
+        all.map(v => `<option value="${v}"${v===cur?' selected':''}>${taskTypeLabel(v)}</option>`).join('');
+    }
+    function _populateTaskTypeDatalist() {
+      const dl = document.getElementById('taskTypeList');
+      if (!dl) return;
+      dl.innerHTML = getEffectiveTaskTypes().map(t => `<option value="${t}">`).join('');
+    }
 
     const TASK_STATUS = {
       idee:          { label: '💡 Idee',           color: '#6366f1' },
@@ -7692,6 +7723,7 @@ www.livetour.ch`;
     }
 
     function renderTasks() {
+      _populateTaskTypeFilter();
       const typeFilter     = document.getElementById('taskFilterType')?.value || 'all';
       const statusFilter   = document.getElementById('taskFilterStatus')?.value || 'all';
       const priorityFilter = document.getElementById('taskFilterPriority')?.value || 'all';
@@ -7741,7 +7773,7 @@ www.livetour.ch`;
       const fmt = d => new Date(d+'T00:00:00').toLocaleDateString('de-CH',{day:'2-digit',month:'2-digit',year:'numeric'});
 
       const renderTaskCard = task => {
-        const typeLabel  = TASK_TYPES[task.type] || task.type;
+        const typeLabel  = taskTypeLabel(task.type);
         const statusInfo = TASK_STATUS[task.status] || { label: task.status, color: '#888' };
         const prioInfo   = TASK_PRIORITY[task.priority] || { label: task.priority, color: '#888' };
         const isOverdue  = task.dueDate && task.dueDate < today && !['erledigt','abgesagt'].includes(task.status);
@@ -8106,16 +8138,22 @@ www.livetour.ch`;
 
       const byType = document.getElementById('taskByType');
       if (byType) {
-        const entries = Object.entries(TASK_TYPES).map(([key, label]) => ({ label, count: state.tasks.filter(t => t.type === key).length }));
-        const max = Math.max(...entries.map(e => e.count), 1);
-        byType.innerHTML = entries.map(({ label, count }) => `
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-            <div style="width:145px;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${label}</div>
-            <div style="flex:1;background:var(--bg);border-radius:4px;height:14px;overflow:hidden;">
-              <div style="height:100%;background:var(--accent);border-radius:4px;width:${Math.round((count/max)*100)}%;"></div>
-            </div>
-            <div style="width:22px;text-align:right;font-size:12px;font-weight:600;">${count}</div>
-          </div>`).join('');
+        const usedTypes = [...new Set(state.tasks.map(t => t.type).filter(Boolean))];
+        const allTypes  = [...new Set([...getEffectiveTaskTypes(), ...usedTypes])];
+        const entries = allTypes.map(v => ({ label: taskTypeLabel(v), count: state.tasks.filter(t => t.type === v).length }))
+          .filter(e => e.count > 0);
+        if (entries.length === 0) { byType.innerHTML = '<div style="color:var(--muted);font-size:12px;">Keine Daten</div>'; }
+        else {
+          const max = Math.max(...entries.map(e => e.count), 1);
+          byType.innerHTML = entries.map(({ label, count }) => `
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+              <div style="width:145px;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(label)}</div>
+              <div style="flex:1;background:var(--bg);border-radius:4px;height:14px;overflow:hidden;">
+                <div style="height:100%;background:var(--accent);border-radius:4px;width:${Math.round((count/max)*100)}%;"></div>
+              </div>
+              <div style="width:22px;text-align:right;font-size:12px;font-weight:600;">${count}</div>
+            </div>`).join('');
+        }
       }
 
       const byStatus = document.getElementById('taskByStatus');
@@ -8185,7 +8223,7 @@ www.livetour.ch`;
         _populateTaskBoardSelect(task.boardId || '');
         renderSubtasksInModal(task.subtasks || []);
       } else {
-        document.getElementById('taskType').value          = 'liUnternehmen';
+        document.getElementById('taskType').value          = getEffectiveTaskTypes()[0] || '';
         document.getElementById('taskTitle').value         = '';
         document.getElementById('taskDescription').value   = '';
         document.getElementById('taskStatus').value        = 'geplant';
@@ -8205,7 +8243,7 @@ www.livetour.ch`;
           : [];
         renderSubtasksInModal(initSubs);
       }
-      toggleTaskEventFields();
+      _populateTaskTypeDatalist();
       _populateSubtaskTemplateSelect();
       modal.classList.add('show');
     }
@@ -8701,6 +8739,46 @@ www.livetour.ch`;
         </div>
       </div>`;
     }
+
+    // ─── AUFGABEN-TYPEN SETTINGS ──────────────────────────────────────────────
+
+    function renderTaskTypesSettings() {
+      const el = document.getElementById('taskTypesSettingsCard');
+      if (!el) return;
+      const types = state.taskTypes || [];
+      el.innerHTML =
+        (types.length === 0
+          ? '<div style="color:var(--muted);font-size:12px;margin-bottom:8px;">Noch keine Typen definiert. Defaults werden verwendet.</div>'
+          : types.map((t, i) => `
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+              <span style="flex:1;font-size:13px;">${escapeHtml(t)}</span>
+              <button class="btn" style="padding:2px 8px;font-size:11px;color:var(--danger);" onclick="removeTaskType(${i})">✕</button>
+            </div>`).join('')) +
+        `<div style="display:flex;gap:8px;margin-top:8px;">
+           <input type="text" id="newTaskTypeInput" class="input-field" placeholder="Neuer Typ..." style="flex:1;"
+             onkeydown="if(event.key==='Enter')addTaskType()">
+           <button class="btn primary" style="font-size:12px;" onclick="addTaskType()">+ Hinzufügen</button>
+         </div>`;
+    }
+
+    window.addTaskType = function() {
+      const input = document.getElementById('newTaskTypeInput');
+      const val = (input?.value || '').trim();
+      if (!val) return;
+      if ((state.taskTypes || []).includes(val)) { showToast('Typ bereits vorhanden'); return; }
+      (state.taskTypes = state.taskTypes || []).push(val);
+      saveTaskTypes();
+      renderTaskTypesSettings();
+      if (input) input.value = '';
+      showToast('✅ Typ hinzugefügt');
+    };
+
+    window.removeTaskType = function(idx) {
+      if (!state.taskTypes) return;
+      state.taskTypes.splice(idx, 1);
+      saveTaskTypes();
+      renderTaskTypesSettings();
+    };
 
     // ─── LINKEDIN TRACKING MODULE ─────────────────────────────────────────────
 
