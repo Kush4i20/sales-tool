@@ -61,6 +61,7 @@
       boardsSubView: 'list',
       _modalSubtasks: [],
       _cltItems: [],
+      _boardModalItems: [],
       liTracking: { profile: 'company' },
       liSnapshots: [],
       liPosts: [],
@@ -8463,54 +8464,134 @@ www.livetour.ch`;
       if (!modal) return;
       document.getElementById('boardEditId').value = boardId || '';
       document.getElementById('boardModalTitle').textContent = boardId ? 'Board bearbeiten' : 'Neues Board';
-      if (boardId) {
-        const b = state.boards.find(x => x.id === boardId);
-        if (!b) return;
-        document.getElementById('boardName').value        = b.name || '';
-        document.getElementById('boardColor').value       = b.color || '#3b82f6';
-        document.getElementById('boardDescription').value = b.description || '';
-      } else {
-        document.getElementById('boardName').value        = '';
-        document.getElementById('boardColor').value       = '#3b82f6';
-        document.getElementById('boardDescription').value = '';
+      const board = boardId ? state.boards.find(x => x.id === boardId) : null;
+      document.getElementById('boardName').value        = board?.name || '';
+      document.getElementById('boardColor').value       = board?.color || '#3b82f6';
+      document.getElementById('boardDescription').value = board?.description || '';
+
+      // populate "Vorlage laden" dropdown
+      const loadSel = document.getElementById('boardLoadTemplate');
+      if (loadSel) {
+        loadSel.innerHTML = '<option value="">Vorlage laden...</option>' +
+          state.checklistTemplates.map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('');
+        loadSel.value = '';
       }
-      const tplSel = document.getElementById('boardTemplateId');
-      if (tplSel) {
-        const cur = boardId ? (state.boards.find(b=>b.id===boardId)?.templateId||'') : '';
-        tplSel.innerHTML = '<option value="">Keine Vorlage</option>' +
-          state.checklistTemplates.map(t => `<option value="${t.id}"${t.id===cur?' selected':''}>${escapeHtml(t.name)}</option>`).join('');
-        tplSel.value = cur;
-      }
+
+      // load existing template items (if board already has one)
+      const linkedTplId = board?.templateId || '';
+      document.getElementById('boardTemplateId').value = linkedTplId;
+      const linkedTpl = linkedTplId ? state.checklistTemplates.find(t => t.id === linkedTplId) : null;
+      state._boardModalItems = linkedTpl ? linkedTpl.items.map(i => ({...i})) : [];
+      _renderBoardModalItems();
+
+      // show which template is linked
+      _updateBoardModalTemplateName();
       modal.style.display = 'flex';
     }
 
     function closeBoardModal() { const m=document.getElementById('boardModal'); if(m) m.style.display='none'; }
 
+    function _renderBoardModalItems() {
+      const el = document.getElementById('boardModalItemsEditor');
+      if (!el) return;
+      const items = (state._boardModalItems || []).slice().sort((a,b) => (a.order??0)-(b.order??0));
+      el.innerHTML = (items.length === 0
+        ? '<div style="color:var(--muted);font-size:12px;padding:4px 0;">Noch keine Punkte — oder Vorlage laden.</div>'
+        : items.map(item => `
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+            <span style="font-size:12px;color:var(--muted);width:22px;text-align:right;flex-shrink:0;">${(item.order||0)+1}.</span>
+            <input type="text" value="${(item.text||'').replace(/"/g,'&quot;')}" class="input-field"
+              style="flex:1;padding:4px 8px;font-size:12px;"
+              oninput="updateBoardModalItemText('${item.id}',this.value)" placeholder="Schritt…">
+            <button class="btn" style="padding:2px 8px;font-size:11px;color:var(--danger);" onclick="removeBoardModalItem('${item.id}')">✕</button>
+          </div>`).join(''));
+    }
+
+    function _updateBoardModalTemplateName() {
+      const el  = document.getElementById('boardModalTemplateName');
+      if (!el) return;
+      const id  = document.getElementById('boardTemplateId')?.value;
+      const tpl = id ? state.checklistTemplates.find(t => t.id === id) : null;
+      if (tpl) { el.textContent = `Verknüpft mit Vorlage: "${tpl.name}"`; el.style.display = ''; }
+      else { el.style.display = 'none'; }
+    }
+
+    window.loadBoardTemplateItems = function(tplId) {
+      const tpl = tplId ? state.checklistTemplates.find(t => t.id === tplId) : null;
+      state._boardModalItems = tpl ? tpl.items.map(i => ({...i})) : [];
+      // link the loaded template
+      const hiddenId = document.getElementById('boardTemplateId');
+      if (hiddenId) hiddenId.value = tplId || '';
+      _renderBoardModalItems();
+      _updateBoardModalTemplateName();
+      // reset dropdown back to placeholder
+      const sel = document.getElementById('boardLoadTemplate');
+      if (sel) sel.value = '';
+    };
+
+    window.addBoardModalItem = function() {
+      const id = 'bitem_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
+      (state._boardModalItems = state._boardModalItems || []).push({ id, text: '', order: state._boardModalItems.length });
+      _renderBoardModalItems();
+    };
+
+    window.removeBoardModalItem = function(id) {
+      state._boardModalItems = (state._boardModalItems || []).filter(i => i.id !== id)
+        .map((i, idx) => ({ ...i, order: idx }));
+      _renderBoardModalItems();
+    };
+
+    window.updateBoardModalItemText = function(id, text) {
+      const item = (state._boardModalItems || []).find(i => i.id === id);
+      if (item) item.text = text;
+    };
+
     function saveBoardFromModal() {
       const name = (document.getElementById('boardName')?.value || '').trim();
       if (!name) { showToast('❌ Board-Name ist Pflichtfeld'); return; }
-      const boardId = document.getElementById('boardEditId')?.value;
-      const now = new Date().toISOString();
+      const boardId  = document.getElementById('boardEditId')?.value;
+      const now      = new Date().toISOString();
+      const items    = (state._boardModalItems || []).filter(i => i.text?.trim());
+      let   linkedId = document.getElementById('boardTemplateId')?.value || null;
+
+      // Persist inline items: create or update checklist template
+      if (items.length > 0) {
+        if (linkedId) {
+          // update existing template
+          const tpl = state.checklistTemplates.find(t => t.id === linkedId);
+          if (tpl) { tpl.items = items; tpl.updatedAt = now; }
+        } else {
+          // create new template named after the board
+          linkedId = 'tpl_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
+          state.checklistTemplates.push({ id: linkedId, name: `Vorlage: ${name}`, items, createdAt: now, updatedAt: now });
+        }
+        saveChecklistTemplates();
+      } else if (!items.length && linkedId) {
+        // items cleared → unlink (but keep the template itself)
+        linkedId = null;
+      }
+
       if (boardId) {
         const b = state.boards.find(x => x.id === boardId);
         if (!b) return;
         b.name        = name;
         b.color       = document.getElementById('boardColor')?.value || '#3b82f6';
         b.description = (document.getElementById('boardDescription')?.value || '').trim();
-        b.templateId  = document.getElementById('boardTemplateId')?.value || null;
+        b.templateId  = linkedId;
         b.updatedAt   = now;
       } else {
         state.boards.push({
           id: 'board_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
           name, color: document.getElementById('boardColor')?.value || '#3b82f6',
           description: (document.getElementById('boardDescription')?.value || '').trim(),
-          templateId: document.getElementById('boardTemplateId')?.value || null,
+          templateId: linkedId,
           createdAt: now, updatedAt: now
         });
       }
       saveBoards();
       closeBoardModal();
       renderBoards();
+      renderTemplatesList_Checklist();
       renderDashboardBoards();
       showToast(boardId ? '✅ Board aktualisiert' : '✅ Board erstellt');
     }

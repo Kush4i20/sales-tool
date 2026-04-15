@@ -3021,11 +3021,19 @@
               <input type="text" id="boardDescription" class="input-field" placeholder="Optional..." style="width:100%;">
             </div>
           </div>
+          <input type="hidden" id="boardTemplateId">
           <div>
-            <label class="label">Standard-Vorlage (Teilschritte)</label>
-            <select id="boardTemplateId" class="input-field" style="width:100%;">
-              <option value="">Keine Vorlage</option>
-            </select>
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+              <label class="label" style="margin:0;">Checklisten-Vorlage (Teilschritte)</label>
+              <div style="display:flex; gap:6px; align-items:center;">
+                <select id="boardLoadTemplate" class="input-field" style="font-size:12px; padding:3px 6px;" onchange="loadBoardTemplateItems(this.value)">
+                  <option value="">Vorlage laden...</option>
+                </select>
+                <button type="button" class="btn" style="font-size:12px; padding:4px 10px;" onclick="addBoardModalItem()">+ Punkt</button>
+              </div>
+            </div>
+            <div id="boardModalItemsEditor" style="display:flex; flex-direction:column; gap:4px;"></div>
+            <div id="boardModalTemplateName" style="display:none; font-size:11px; color:var(--muted); margin-top:6px;"></div>
           </div>
         </div>
       </div>
