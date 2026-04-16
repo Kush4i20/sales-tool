@@ -2386,7 +2386,10 @@ async function hkmExecuteImport(clean, selectedDupes, resultEl, fileInput, parse
             const uid = hkmGetUidByMemberId(contact.memberId);
             if (uid) lead.assigned_to = uid;
           }
-          addNotesHistory(contact, `📦 VisuMat Lead importiert: ${lead.projektname || lead.firma || 'Unbekannt'}`, contact.status);
+          // Status auf "Followup mit VisuMat" setzen
+          const prevStatus = contact.status;
+          contact.status = 'followupvisumat';
+          addNotesHistory(contact, `📦 VisuMat Lead importiert: ${lead.projektname || lead.firma || 'Unbekannt'} → Status: Followup mit VisuMat`, prevStatus);
           crmLinked++;
         }
       }

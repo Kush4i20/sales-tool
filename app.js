@@ -2906,6 +2906,7 @@
         response:         '💬 Antwort erhalten',
         preselected:      '✅ Vorselektiert',
         followup:         '🔄 Im Followup',
+        followupvisumat:  '📦 Followup mit VisuMat',
         // LinkedIn
         lioutboundtoday:    '🔗 LinkedIn: Heute',
         lioutboundfollowup: '🔁 LinkedIn: Followup',
