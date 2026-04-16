@@ -7918,11 +7918,12 @@ www.livetour.ch`;
       };
 
       const allVisible = [...open, ...(showCompleted ? completed : [])];
-      const allSelectedVisible = allVisible.every(t => (state.taskSelectedIds||[]).includes(t.id));
+      state._visibleTaskIds = allVisible.map(t => t.id);
+      const allSelectedVisible = allVisible.length > 0 && allVisible.every(t => (state.taskSelectedIds||[]).includes(t.id));
       const selectAllHtml = allVisible.length > 0 ? `
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;padding:4px 2px;">
-          <input type="checkbox" ${allSelectedVisible&&allVisible.length>0?'checked':''} style="accent-color:var(--accent);width:16px;height:16px;cursor:pointer;"
-            onchange="selectAllVisibleTasks(this.checked,${JSON.stringify(allVisible.map(t=>t.id))})">
+          <input type="checkbox" ${allSelectedVisible?'checked':''} style="accent-color:var(--accent);width:16px;height:16px;cursor:pointer;"
+            onchange="selectAllVisibleTasks(this.checked)">
           <span style="font-size:12px;color:var(--muted);">Alle auswählen</span>
         </div>` : '';
 
@@ -7973,7 +7974,8 @@ www.livetour.ch`;
       renderTasks();
     }
 
-    function selectAllVisibleTasks(checked, ids) {
+    function selectAllVisibleTasks(checked) {
+      const ids = state._visibleTaskIds || [];
       if (checked) {
         const existing = new Set(state.taskSelectedIds || []);
         ids.forEach(id => existing.add(id));
