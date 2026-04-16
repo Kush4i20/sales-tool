@@ -57,6 +57,8 @@
       taskFilterDateFrom: '',
       taskFilterDateTo: '',
       taskFilterBoard: 'all',
+      taskFilterAssignedTo: 'all',
+      taskSelectedIds: [],
       activeBoardId: null,
       boardsSubView: 'list',
       _modalSubtasks: [],
@@ -7776,20 +7778,29 @@ www.livetour.ch`;
       const dtEl = document.getElementById('taskFilterDateTo');
       if (dfEl) dfEl.value = state.taskFilterDateFrom || '';
       if (dtEl) dtEl.value = state.taskFilterDateTo || '';
+      const afEl = document.getElementById('taskFilterAssignedTo');
+      if (afEl) {
+        const curA = state.taskFilterAssignedTo || 'all';
+        afEl.innerHTML = '<option value="all">Alle</option><option value="__none__">Nicht zugewiesen</option>' +
+          (state.members || []).map(m => `<option value="${m.id}">${escapeHtml(m.vorname)} ${escapeHtml(m.nachname||'')} (${escapeHtml(m.kuerzel||'')})</option>`).join('');
+        afEl.value = curA;
+      }
     }
 
     function renderTasks() {
       _populateTaskTypeFilter();
-      const typeFilter     = document.getElementById('taskFilterType')?.value || 'all';
-      const statusFilter   = document.getElementById('taskFilterStatus')?.value || 'all';
-      const priorityFilter = document.getElementById('taskFilterPriority')?.value || 'all';
-      const boardFilter    = state.taskFilterBoard || 'all';
-      const dateFrom       = state.taskFilterDateFrom || '';
-      const dateTo         = state.taskFilterDateTo || '';
-      const sortBy         = state.taskListSortBy || 'faelligkeit';
-      const showCompleted  = state.taskListShowCompleted;
+      const typeFilter       = document.getElementById('taskFilterType')?.value || 'all';
+      const statusFilter     = document.getElementById('taskFilterStatus')?.value || 'all';
+      const priorityFilter   = document.getElementById('taskFilterPriority')?.value || 'all';
+      const boardFilter      = state.taskFilterBoard || 'all';
+      const assigneeFilter   = state.taskFilterAssignedTo || 'all';
+      const dateFrom         = state.taskFilterDateFrom || '';
+      const dateTo           = state.taskFilterDateTo || '';
+      const sortBy           = state.taskListSortBy || 'faelligkeit';
+      const showCompleted    = state.taskListShowCompleted;
 
       _renderTaskFilterExtras();
+      _renderBulkBar();
 
       let filtered = state.tasks.slice();
       if (typeFilter !== 'all')     filtered = filtered.filter(t => t.type === typeFilter);
@@ -7797,6 +7808,8 @@ www.livetour.ch`;
       if (priorityFilter !== 'all') filtered = filtered.filter(t => t.priority === priorityFilter);
       if (boardFilter === '__none__') filtered = filtered.filter(t => !t.boardId);
       else if (boardFilter !== 'all') filtered = filtered.filter(t => t.boardId === boardFilter);
+      if (assigneeFilter === '__none__') filtered = filtered.filter(t => !t.assignedTo);
+      else if (assigneeFilter !== 'all') filtered = filtered.filter(t => t.assignedTo === assigneeFilter);
       if (dateFrom) filtered = filtered.filter(t => !t.dueDate || t.dueDate >= dateFrom);
       if (dateTo)   filtered = filtered.filter(t => !t.dueDate || t.dueDate <= dateTo);
 
@@ -7835,12 +7848,14 @@ www.livetour.ch`;
         const isOverdue  = task.dueDate && task.dueDate < today && !['erledigt','abgesagt'].includes(task.status);
         const isDone     = task.status === 'erledigt' || task.status === 'abgesagt';
         const board      = task.boardId ? state.boards.find(b => b.id === task.boardId) : null;
+        const assignee   = task.assignedTo ? (state.members || []).find(m => m.id === task.assignedTo) : null;
         const subs       = task.subtasks || [];
         const subTotal   = subs.length;
         const subDone    = subs.filter(s => s.done).length;
         const subPct     = subTotal > 0 ? Math.round((subDone/subTotal)*100) : 0;
         const allSubsDone = subTotal > 0 && subDone === subTotal;
-        const leftBorder = isOverdue ? '#ef4444' : allSubsDone && subTotal > 0 ? '#22c55e' : statusInfo.color;
+        const isSelected = (state.taskSelectedIds || []).includes(task.id);
+        const leftBorder = isSelected ? 'var(--accent)' : isOverdue ? '#ef4444' : allSubsDone && subTotal > 0 ? '#22c55e' : statusInfo.color;
 
         const subtaskBar = subTotal > 0 ? `
           <div style="margin-top:8px;">
@@ -7863,14 +7878,25 @@ www.livetour.ch`;
               </div>`).join('')}
           </div>` : '';
 
-        return `<div style="background:var(--card);border:1px solid var(--line);border-left:3px solid ${leftBorder};border-radius:10px;padding:14px 16px;${isDone?'opacity:0.65;':''}">
+        const assigneeBadge = assignee
+          ? `<span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:2px 8px;border-radius:999px;background:${assignee.color||'#3b82f6'}22;color:${assignee.color||'#3b82f6'};font-weight:600;border:1px solid ${assignee.color||'#3b82f6'}44;">
+              <span style="width:16px;height:16px;border-radius:50%;background:${assignee.color||'#3b82f6'};color:#fff;font-size:9px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;">${escapeHtml(assignee.kuerzel||'?')}</span>
+              ${escapeHtml(assignee.vorname||'')}
+            </span>`
+          : '';
+        return `<div style="background:${isSelected?'rgba(245,158,11,.06)':'var(--card)'};border:1px solid ${isSelected?'var(--accent)':'var(--line)'};border-left:3px solid ${leftBorder};border-radius:10px;padding:14px 16px;${isDone?'opacity:0.65;':''}transition:background .15s;">
           <div style="display:flex;gap:14px;align-items:flex-start;">
+            <div style="display:flex;align-items:flex-start;padding-top:2px;flex-shrink:0;">
+              <input type="checkbox" ${isSelected?'checked':''} style="accent-color:var(--accent);width:16px;height:16px;cursor:pointer;margin-top:1px;"
+                onclick="event.stopPropagation();toggleTaskSelect('${task.id}')">
+            </div>
             <div style="flex:1;min-width:0;">
               <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px;">
                 <span style="font-size:11px;background:var(--accent-soft);color:var(--accent);padding:2px 8px;border-radius:999px;">${typeLabel}</span>
                 <span style="font-size:11px;background:${statusInfo.color}22;color:${statusInfo.color};padding:2px 8px;border-radius:999px;border:1px solid ${statusInfo.color}44;">${statusInfo.label}</span>
                 <span style="font-size:11px;color:${prioInfo.color};font-weight:600;">${prioInfo.label}</span>
                 ${board?`<span style="font-size:11px;padding:2px 8px;border-radius:999px;background:${board.color}22;color:${board.color};font-weight:600;">📁 ${escapeHtml(board.name)}</span>`:''}
+                ${assigneeBadge}
                 ${isOverdue?'<span style="font-size:11px;color:#ef4444;font-weight:700;">⚠️ Überfällig</span>':''}
               </div>
               <div style="font-size:14px;font-weight:600;color:var(--text);${isDone?'text-decoration:line-through;':''}">${escapeHtml(task.title)}</div>
@@ -7891,7 +7917,16 @@ www.livetour.ch`;
         </div>`;
       };
 
-      let html = '';
+      const allVisible = [...open, ...(showCompleted ? completed : [])];
+      const allSelectedVisible = allVisible.every(t => (state.taskSelectedIds||[]).includes(t.id));
+      const selectAllHtml = allVisible.length > 0 ? `
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;padding:4px 2px;">
+          <input type="checkbox" ${allSelectedVisible&&allVisible.length>0?'checked':''} style="accent-color:var(--accent);width:16px;height:16px;cursor:pointer;"
+            onchange="selectAllVisibleTasks(this.checked,${JSON.stringify(allVisible.map(t=>t.id))})">
+          <span style="font-size:12px;color:var(--muted);">Alle auswählen</span>
+        </div>` : '';
+
+      let html = selectAllHtml;
       if (open.length === 0) {
         html += '<div style="text-align:center;padding:32px;color:var(--muted);font-size:13px;">Keine offenen Aufgaben. Erstelle eine neue Aufgabe oder zeige erledigte an.</div>';
       } else {
@@ -7926,11 +7961,135 @@ www.livetour.ch`;
       renderTasks();
     }
 
+    // ── Bulk selection ────────────────────────────────────────────────────────
+    function toggleTaskSelect(taskId) {
+      const ids = state.taskSelectedIds || [];
+      const idx = ids.indexOf(taskId);
+      if (idx === -1) ids.push(taskId);
+      else ids.splice(idx, 1);
+      state.taskSelectedIds = ids;
+      _renderBulkBar();
+      // Update just the checkbox in the card without full re-render
+      renderTasks();
+    }
+
+    function selectAllVisibleTasks(checked, ids) {
+      if (checked) {
+        const existing = new Set(state.taskSelectedIds || []);
+        ids.forEach(id => existing.add(id));
+        state.taskSelectedIds = [...existing];
+      } else {
+        const remove = new Set(ids);
+        state.taskSelectedIds = (state.taskSelectedIds || []).filter(id => !remove.has(id));
+      }
+      renderTasks();
+    }
+
+    function clearTaskSelection() {
+      state.taskSelectedIds = [];
+      renderTasks();
+    }
+
+    function _renderBulkBar() {
+      const bar = document.getElementById('taskBulkBar');
+      if (!bar) return;
+      const count = (state.taskSelectedIds || []).length;
+      if (count === 0) {
+        bar.style.display = 'none';
+        return;
+      }
+      bar.style.display = 'flex';
+      const countEl = document.getElementById('taskBulkCount');
+      if (countEl) countEl.textContent = `${count} ausgewählt`;
+      // Populate bulk assign dropdown
+      const assignSel = document.getElementById('bulkAssignSelect');
+      if (assignSel) {
+        const cur = assignSel.value;
+        assignSel.innerHTML = '<option value="">Zuweisen an...</option>' +
+          (state.members || []).map(m => `<option value="${m.id}">${escapeHtml(m.vorname||'')} ${escapeHtml(m.nachname||'')} (${escapeHtml(m.kuerzel||'')})</option>`).join('');
+        if (cur) assignSel.value = cur;
+      }
+      // Populate bulk board dropdown
+      const boardSel = document.getElementById('bulkBoardSelect');
+      if (boardSel) {
+        const cur = boardSel.value;
+        boardSel.innerHTML = '<option value="">Board zuweisen...</option><option value="__none__">Kein Board</option>' +
+          (state.boards || []).map(b => `<option value="${b.id}">${escapeHtml(b.name)}</option>`).join('');
+        if (cur) boardSel.value = cur;
+      }
+    }
+
+    function bulkAssignTasks() {
+      const memberId = document.getElementById('bulkAssignSelect')?.value;
+      if (!memberId) { showToast('❌ Bitte Mitarbeiter auswählen'); return; }
+      const ids = new Set(state.taskSelectedIds || []);
+      if (!ids.size) return;
+      const now = new Date().toISOString();
+      state.tasks.forEach(t => {
+        if (ids.has(t.id)) { t.assignedTo = memberId; t.updatedAt = now; }
+      });
+      saveTasks();
+      state.taskSelectedIds = [];
+      renderTasks();
+      const m = (state.members || []).find(x => x.id === memberId);
+      showToast(`✅ ${ids.size} Aufgabe${ids.size!==1?'n':''} ${m ? 'an ' + escapeHtml(m.vorname||'') : ''} zugewiesen`);
+    }
+
+    function bulkSetStatus() {
+      const status = document.getElementById('bulkStatusSelect')?.value;
+      if (!status) { showToast('❌ Bitte Status auswählen'); return; }
+      const ids = new Set(state.taskSelectedIds || []);
+      if (!ids.size) return;
+      const now = new Date().toISOString();
+      state.tasks.forEach(t => {
+        if (ids.has(t.id)) {
+          const wasDone = t.status === 'erledigt';
+          t.status = status;
+          t.updatedAt = now;
+          if (!wasDone && status === 'erledigt') t.completedAt = now;
+        }
+      });
+      saveTasks();
+      state.taskSelectedIds = [];
+      renderTasks();
+      showToast(`✅ ${ids.size} Aufgabe${ids.size!==1?'n':''} auf "${status}" gesetzt`);
+    }
+
+    function bulkSetBoard() {
+      const boardId = document.getElementById('bulkBoardSelect')?.value;
+      if (!boardId) { showToast('❌ Bitte Board auswählen'); return; }
+      const ids = new Set(state.taskSelectedIds || []);
+      if (!ids.size) return;
+      const now = new Date().toISOString();
+      state.tasks.forEach(t => {
+        if (ids.has(t.id)) { t.boardId = boardId === '__none__' ? null : boardId; t.updatedAt = now; }
+      });
+      saveTasks();
+      state.taskSelectedIds = [];
+      renderTasks();
+      if (typeof renderBoards === 'function') renderBoards();
+      showToast(`✅ ${ids.size} Aufgabe${ids.size!==1?'n':''} zugeordnet`);
+    }
+
+    function bulkDeleteTasks() {
+      const ids = new Set(state.taskSelectedIds || []);
+      if (!ids.size) return;
+      if (!confirm(`${ids.size} Aufgabe${ids.size!==1?'n':''} wirklich löschen?`)) return;
+      state.tasks = state.tasks.filter(t => !ids.has(t.id));
+      saveTasks();
+      state.taskSelectedIds = [];
+      renderTasks();
+      if (typeof renderBoards === 'function') renderBoards();
+      showToast(`🗑️ ${ids.size} Aufgabe${ids.size!==1?'n':''} gelöscht`);
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     function applyTaskFilters() {
-      state.taskFilterBoard    = document.getElementById('taskFilterBoard')?.value    || 'all';
-      state.taskFilterDateFrom = document.getElementById('taskFilterDateFrom')?.value || '';
-      state.taskFilterDateTo   = document.getElementById('taskFilterDateTo')?.value   || '';
-      state.taskListSortBy     = document.getElementById('taskSortBy')?.value         || 'faelligkeit';
+      state.taskFilterBoard      = document.getElementById('taskFilterBoard')?.value      || 'all';
+      state.taskFilterDateFrom   = document.getElementById('taskFilterDateFrom')?.value   || '';
+      state.taskFilterDateTo     = document.getElementById('taskFilterDateTo')?.value     || '';
+      state.taskListSortBy       = document.getElementById('taskSortBy')?.value           || 'faelligkeit';
+      state.taskFilterAssignedTo = document.getElementById('taskFilterAssignedTo')?.value || 'all';
       renderTasks();
     }
 
@@ -7941,10 +8100,12 @@ www.livetour.ch`;
       if (tf) tf.value = 'all';
       if (sf) sf.value = 'all';
       if (pf) pf.value = 'all';
-      state.taskFilterBoard = 'all';
-      state.taskFilterDateFrom = '';
-      state.taskFilterDateTo = '';
-      state.taskListSortBy = 'faelligkeit';
+      state.taskFilterBoard      = 'all';
+      state.taskFilterDateFrom   = '';
+      state.taskFilterDateTo     = '';
+      state.taskListSortBy       = 'faelligkeit';
+      state.taskFilterAssignedTo = 'all';
+      state.taskSelectedIds      = [];
       _renderTaskFilterExtras();
       renderTasks();
     }
@@ -8259,6 +8420,14 @@ www.livetour.ch`;
       if (selectedId) sel.value = selectedId;
     }
 
+    function _populateTaskAssignedToSelect(selectedId) {
+      const sel = document.getElementById('taskAssignedTo');
+      if (!sel) return;
+      sel.innerHTML = '<option value="">Nicht zugewiesen</option>' +
+        (state.members || []).map(m => `<option value="${m.id}"${m.id===selectedId?' selected':''}>${escapeHtml(m.vorname||'')} ${escapeHtml(m.nachname||'')} (${escapeHtml(m.kuerzel||'')})</option>`).join('');
+      if (selectedId) sel.value = selectedId;
+    }
+
     function openTaskModal(taskId) {
       const modal = document.getElementById('taskModal');
       if (!modal) return;
@@ -8277,6 +8446,7 @@ www.livetour.ch`;
         document.getElementById('taskEventLocation').value = task.eventLocation || '';
         document.getElementById('taskNotes').value         = task.notes || '';
         _populateTaskBoardSelect(task.boardId || '');
+        _populateTaskAssignedToSelect(task.assignedTo || '');
         renderSubtasksInModal(task.subtasks || []);
       } else {
         document.getElementById('taskType').value          = getEffectiveTaskTypes()[0] || '';
@@ -8290,6 +8460,7 @@ www.livetour.ch`;
         document.getElementById('taskNotes').value         = '';
         const preBoard = state.taskFilterBoard !== 'all' && state.taskFilterBoard !== '__none__' ? state.taskFilterBoard : '';
         _populateTaskBoardSelect(preBoard);
+        _populateTaskAssignedToSelect('');
         const board = preBoard ? state.boards.find(b => b.id === preBoard) : null;
         const initSubs = board?.templateId
           ? (state.checklistTemplates.find(t => t.id === board.templateId)?.items || []).map(i => ({
@@ -8388,6 +8559,7 @@ www.livetour.ch`;
         task.eventLocation = (document.getElementById('taskEventLocation')?.value || '').trim();
         task.notes         = (document.getElementById('taskNotes')?.value || '').trim();
         task.boardId       = document.getElementById('taskBoardId')?.value || null;
+        task.assignedTo    = document.getElementById('taskAssignedTo')?.value || null;
         task.subtasks      = (state._modalSubtasks || []).filter(s => (s.text||'').trim());
         task.updatedAt     = now;
         if (wasNotDone && status === 'erledigt') task.completedAt = now;
@@ -8404,6 +8576,7 @@ www.livetour.ch`;
           eventLocation: (document.getElementById('taskEventLocation')?.value || '').trim(),
           notes:         (document.getElementById('taskNotes')?.value || '').trim(),
           boardId:       document.getElementById('taskBoardId')?.value || null,
+          assignedTo:    document.getElementById('taskAssignedTo')?.value || null,
           subtasks:      (state._modalSubtasks || []).filter(s => (s.text||'').trim()),
           completedAt:   status === 'erledigt' ? now : null,
           createdAt:     now,

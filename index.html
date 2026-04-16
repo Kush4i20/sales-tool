@@ -1187,12 +1187,41 @@
                     <option value="tief">🟢 Tief</option>
                   </select>
                 </div>
-                <div style="display:flex; gap:6px;">
-                  <button class="btn" onclick="applyTaskFilter()">🔍 Filtern</button>
+                <div>
+                  <label class="label">Zuständig</label>
+                  <select id="taskFilterAssignedTo" class="input-field" style="min-width:150px;" onchange="applyTaskFilters()">
+                    <option value="all">Alle</option>
+                  </select>
+                </div>
+                <div style="display:flex; gap:6px; align-self:flex-end;">
+                  <button class="btn" onclick="applyTaskFilters()">🔍 Filtern</button>
                   <button class="btn" onclick="resetTaskFilter()">🔄 Reset</button>
                 </div>
               </div>
             </div>
+          </div>
+          <!-- Bulk action bar (shown when tasks are selected) -->
+          <div id="taskBulkBar" style="display:none; background:var(--accent-soft); border:1px solid var(--accent); border-radius:10px; padding:10px 16px; margin-bottom:10px; gap:10px; align-items:center; flex-wrap:wrap;">
+            <span id="taskBulkCount" style="font-size:13px; font-weight:700; color:var(--accent); min-width:90px;"></span>
+            <select id="bulkAssignSelect" class="input-field" style="min-width:160px; font-size:12px;">
+              <option value="">Zuweisen an...</option>
+            </select>
+            <button class="btn primary" style="font-size:12px; padding:5px 12px;" onclick="bulkAssignTasks()">Zuweisen</button>
+            <select id="bulkStatusSelect" class="input-field" style="min-width:150px; font-size:12px;">
+              <option value="">Status setzen...</option>
+              <option value="idee">💡 Idee</option>
+              <option value="geplant">📅 Geplant</option>
+              <option value="inbearbeitung">⚙️ In Bearbeitung</option>
+              <option value="erledigt">✅ Erledigt</option>
+              <option value="abgesagt">❌ Abgesagt</option>
+            </select>
+            <button class="btn" style="font-size:12px; padding:5px 12px;" onclick="bulkSetStatus()">Status anwenden</button>
+            <select id="bulkBoardSelect" class="input-field" style="min-width:150px; font-size:12px;">
+              <option value="">Board zuweisen...</option>
+            </select>
+            <button class="btn" style="font-size:12px; padding:5px 12px;" onclick="bulkSetBoard()">Board anwenden</button>
+            <button class="btn" style="font-size:12px; padding:5px 12px; color:#ef4444; margin-left:auto;" onclick="bulkDeleteTasks()">🗑️ Löschen</button>
+            <button class="btn" style="font-size:12px; padding:5px 12px;" onclick="clearTaskSelection()">✕ Abbrechen</button>
           </div>
           <!-- Task list -->
           <div id="aufgabenListe" style="display:grid; gap:10px;"></div>
@@ -2965,11 +2994,19 @@
               <input type="text" id="taskEventLocation" class="input-field" placeholder="Ort des Events" style="width:100%;">
             </div>
           </div>
-          <div>
-            <label class="label">Board</label>
-            <select id="taskBoardId" class="input-field" style="width:100%;">
-              <option value="">Kein Board</option>
-            </select>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+            <div>
+              <label class="label">Board</label>
+              <select id="taskBoardId" class="input-field" style="width:100%;">
+                <option value="">Kein Board</option>
+              </select>
+            </div>
+            <div>
+              <label class="label">Zuständig</label>
+              <select id="taskAssignedTo" class="input-field" style="width:100%;">
+                <option value="">Nicht zugewiesen</option>
+              </select>
+            </div>
           </div>
           <div>
             <label class="label">Notizen</label>
