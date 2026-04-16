@@ -864,6 +864,26 @@ onAuthStateChanged(auth, async (user) => {
         const remoteList = normalizeFirebaseArray(snapshot.val());
         state.userAccounts = remoteList;
         localStorage.setItem('phUserAccounts', JSON.stringify(state.userAccounts));
+
+        // Auto-register current user if not in list (e.g. created directly via Firebase Console)
+        if (currentUser && !remoteList.find(u => u.uid === currentUser.uid)) {
+          const name = state.currentUserProfile?.name || state.settings?.name || currentUser.email || '';
+          const role = state.settings?.userRole || 'admin';
+          const newEntry = {
+            uid: currentUser.uid,
+            name,
+            email: currentUser.email || '',
+            role,
+            memberId: null,
+            createdAt: new Date().toISOString(),
+            autoRegistered: true
+          };
+          const acctRef = ref(db, `orgs/${orgId}/userAccounts/${currentUser.uid}`);
+          set(acctRef, newEntry).catch(console.error);
+          state.userAccounts.push(newEntry);
+          localStorage.setItem('phUserAccounts', JSON.stringify(state.userAccounts));
+        }
+
         renderUserAccountsList?.();
       }, (e) => console.error('Firebase userAccounts error:', e));
 
