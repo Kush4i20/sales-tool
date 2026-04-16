@@ -450,7 +450,38 @@ function hkmUpdateBulkBar() {
   if (countEl) countEl.textContent = `${count} Lead${count !== 1 ? 's' : ''} ausgewählt`;
   const delBtn = document.getElementById('hkmBulkDeleteBtn');
   if (delBtn) delBtn.style.display = hkmIsAdmin() ? '' : 'none';
+  // Populate assign dropdown with current profiles
+  const assignSel = document.getElementById('hkmBulkAssignSelect');
+  if (assignSel) {
+    const cur = assignSel.value;
+    assignSel.innerHTML = '<option value="">Zuweisen an...</option>' +
+      Object.entries(state.hkmProfiles || {}).map(([uid, p]) =>
+        `<option value="${uid}">${p.name || uid}</option>`
+      ).join('');
+    if (cur) assignSel.value = cur;
+  }
 }
+
+window.hkmBulkAssign = async function() {
+  const uid = document.getElementById('hkmBulkAssignSelect')?.value;
+  if (!uid) { showToast('❌ Bitte Mitarbeiter auswählen'); return; }
+  const ids = [...state.hkmBulkSelected];
+  if (!ids.length) return;
+  const profile = state.hkmProfiles[uid];
+  let updated = 0;
+  for (const id of ids) {
+    try {
+      const lead = state.hkmLeads.find(l => l.id === id);
+      if (!lead) continue;
+      lead.assigned_to = uid;
+      await window.saveHkmLead(lead);
+      updated++;
+    } catch(e) { console.error('bulkAssign lead error', e); }
+  }
+  state.hkmBulkSelected.clear();
+  showToast(`✅ ${updated} Lead${updated !== 1 ? 's' : ''} ${profile ? 'an ' + (profile.name || uid) : ''} zugewiesen`);
+  renderHkmLeads();
+};
 
 window.hkmClearBulkSelection = function() {
   state.hkmBulkSelected.clear();
