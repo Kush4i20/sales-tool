@@ -2907,6 +2907,7 @@
         preselected:      '✅ Vorselektiert',
         followup:         '🔄 Im Followup',
         followupvisumat:  '📦 Followup mit VisuMat',
+        nointerest_visumat: '🤔 Kein Interesse – evtl. VisuMat?',
         // LinkedIn
         lioutboundtoday:    '🔗 LinkedIn: Heute',
         lioutboundfollowup: '🔁 LinkedIn: Followup',

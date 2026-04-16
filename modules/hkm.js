@@ -2386,10 +2386,11 @@ async function hkmExecuteImport(clean, selectedDupes, resultEl, fileInput, parse
             const uid = hkmGetUidByMemberId(contact.memberId);
             if (uid) lead.assigned_to = uid;
           }
-          // Status auf "Followup mit VisuMat" setzen
+          // Status setzen: bei "Kein Interesse" → separater VisuMat-Status
           const prevStatus = contact.status;
-          contact.status = 'followupvisumat';
-          addNotesHistory(contact, `📦 VisuMat Lead importiert: ${lead.projektname || lead.firma || 'Unbekannt'} → Status: Followup mit VisuMat`, prevStatus);
+          contact.status = prevStatus === 'nointerest' ? 'nointerest_visumat' : 'followupvisumat';
+          const newStatusLabel = contact.status === 'nointerest_visumat' ? 'Kein Interesse – evtl. VisuMat?' : 'Followup mit VisuMat';
+          addNotesHistory(contact, `📦 VisuMat Lead importiert: ${lead.projektname || lead.firma || 'Unbekannt'} → Status: ${newStatusLabel}`, prevStatus);
           crmLinked++;
         }
       }
