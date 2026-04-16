@@ -558,6 +558,9 @@ function openHkmLeadDetail(leadId) {
   // Activity log
   renderHkmLeadActivities(leadId);
 
+  // CRM contact panel
+  renderHkmCrmContactPanel(lead);
+
   document.getElementById('hkmLeadDetailModal').style.display = 'flex';
 }
 
@@ -610,6 +613,99 @@ function closeHkmLeadDetail() {
   document.getElementById('hkmLeadDetailModal').style.display = 'none';
   state.hkmCurrentLeadId = null;
 }
+
+function renderHkmCrmContactPanel(lead) {
+  const el = document.getElementById('hkmCrmContactPanel');
+  if (!el) return;
+
+  if (!lead?.linked_contact_id) {
+    el.innerHTML = '';
+    return;
+  }
+
+  const contact = (state.contacts || []).find(c => c.id === lead.linked_contact_id);
+  if (!contact) {
+    el.innerHTML = `<div style="border:1px solid var(--line);border-radius:10px;padding:12px 16px;background:var(--card);">
+      <div style="font-size:13px;color:var(--muted);">🔗 CRM-Kontakt nicht mehr vorhanden (ID: ${escapeHtml(lead.linked_contact_id)})</div>
+    </div>`;
+    return;
+  }
+
+  const statusLabel = (typeof getStatusLabel === 'function' ? getStatusLabel(contact.status) : contact.status) || '–';
+  const history = (contact.notesHistory || []).slice().sort((a, b) => new Date(b.timestamp||0) - new Date(a.timestamp||0));
+  const panelId = 'hkmCrmHistoryBody_' + lead.id;
+
+  const historyHtml = history.length === 0
+    ? '<div style="color:var(--muted);font-size:12px;text-align:center;padding:8px;">Keine Notizen / Historie vorhanden</div>'
+    : history.map((e, i) => `
+        <div style="padding:8px 0;${i < history.length-1 ? 'border-bottom:1px solid var(--line);' : ''}">
+          <div style="font-size:10px;color:var(--muted);margin-bottom:3px;display:flex;gap:8px;flex-wrap:wrap;">
+            <span>📅 ${new Date(e.timestamp||0).toLocaleString('de-CH',{dateStyle:'short',timeStyle:'short'})}</span>
+            ${e.status ? `<span>🏷 ${escapeHtml((typeof getStatusLabel==='function'?getStatusLabel(e.status):e.status)||e.status)}</span>` : ''}
+          </div>
+          <div style="font-size:12px;white-space:pre-wrap;word-break:break-word;">${escapeHtml(e.text||'')}</div>
+        </div>`).join('');
+
+  el.innerHTML = `
+    <div style="border:1px solid #3b82f644;border-radius:10px;background:rgba(59,130,246,.04);">
+      <!-- Header / toggle -->
+      <div onclick="hkmToggleCrmPanel('${panelId}')"
+           style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;cursor:pointer;border-radius:10px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="font-size:13px;font-weight:700;color:#3b82f6;">🔗 Kontaktdetails CRM</span>
+          <span style="font-size:11px;padding:2px 8px;border-radius:999px;background:rgba(59,130,246,.12);color:#3b82f6;">${escapeHtml(contact.vorname||'')} ${escapeHtml(contact.nachname||'')}</span>
+        </div>
+        <span id="${panelId}_arrow" style="font-size:12px;color:var(--muted);">▼</span>
+      </div>
+      <!-- Collapsible body -->
+      <div id="${panelId}" style="display:none;padding:0 16px 14px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:14px;">
+          <div style="display:grid;gap:6px;">
+            <div><span class="label" style="font-size:10px;">Name</span><div style="font-size:13px;font-weight:600;">${escapeHtml((contact.vorname||'')+' '+(contact.nachname||''))}</div></div>
+            <div><span class="label" style="font-size:10px;">Firma</span><div style="font-size:13px;">${escapeHtml(contact.firma||'–')}</div></div>
+            <div><span class="label" style="font-size:10px;">Telefon</span><div style="font-size:13px;">${escapeHtml(contact.phone||contact.tel||'–')}</div></div>
+            <div><span class="label" style="font-size:10px;">E-Mail</span><div style="font-size:13px;">${escapeHtml(contact.email||'–')}</div></div>
+            <div><span class="label" style="font-size:10px;">Status</span><div style="font-size:13px;">${escapeHtml(statusLabel)}</div></div>
+          </div>
+          <div>
+            <div class="label" style="font-size:10px;margin-bottom:6px;">Letzte Notiz</div>
+            <div style="font-size:12px;color:var(--muted);font-style:italic;white-space:pre-wrap;word-break:break-word;">
+              ${history.length > 0 ? escapeHtml(history[0].text||'') : '–'}
+            </div>
+          </div>
+        </div>
+        <div style="border-top:1px solid var(--line);padding-top:10px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <div class="label" style="font-size:11px;margin:0;">Notizen &amp; Historie (${history.length})</div>
+            <button class="btn" style="font-size:11px;padding:3px 10px;" onclick="window.hkmOpenCrmContact('${contact.id}')">↗ Im CRM öffnen</button>
+          </div>
+          <div style="max-height:220px;overflow-y:auto;">${historyHtml}</div>
+        </div>
+      </div>
+    </div>`;
+}
+
+window.hkmToggleCrmPanel = function(panelId) {
+  const body = document.getElementById(panelId);
+  const arrow = document.getElementById(panelId + '_arrow');
+  if (!body) return;
+  const open = body.style.display === 'none';
+  body.style.display = open ? '' : 'none';
+  if (arrow) arrow.textContent = open ? '▲' : '▼';
+};
+
+window.hkmOpenCrmContact = function(contactId) {
+  closeHkmLeadDetail();
+  // Switch to CRM section and open the contact edit modal
+  if (typeof navigateTo === 'function') navigateTo('crm');
+  else {
+    const btn = document.querySelector('[data-section="crm"]') || document.querySelector('[onclick*="crm"]');
+    if (btn) btn.click();
+  }
+  setTimeout(() => {
+    if (typeof openEditModal === 'function') openEditModal(contactId);
+  }, 150);
+};
 
 // ─── Lead Add/Edit Modal ──────────────────────────────────────────────────────
 
