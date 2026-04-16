@@ -7468,30 +7468,45 @@ www.livetour.ch`;
       }
 
       const byTime = [...state.userAccounts].sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+      const memberOpts = state.members.map(m => `<option value="${m.id}">${m.vorname} ${m.nachname} (${m.kuerzel})</option>`).join('');
       el.innerHTML = byTime.map(u => {
         const member = state.members.find(m => m.id === u.memberId);
-        const memberLabel = member ? `${member.vorname} ${member.nachname} (${member.kuerzel})` : 'Nicht verknüpft';
+        const hkmUid = u.uid;
+        const hkmProfile = state.hkmProfiles?.[hkmUid];
+        const hkmLinked  = hkmProfile?.memberId === u.memberId && !!u.memberId;
         const roleBadgeColor = u.role === 'admin' ? '#ef4444' : u.role === 'manager' ? '#f59e0b' : '#3b82f6';
+        const memberSelectVal = u.memberId || '';
         return `
-          <div style="padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);">
+          <div style="padding:10px;border:1px solid ${!u.memberId?'#f59e0b':hkmLinked?'var(--line)':'var(--line)'};border-radius:8px;background:var(--bg);">
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-              <div style="font-size:13px;font-weight:600;flex:1;min-width:180px;">${u.name || u.email || u.uid}</div>
+              <div style="font-size:13px;font-weight:600;flex:1;min-width:180px;">${escapeHtml(u.name || u.email || u.uid)}</div>
               <span style="font-size:11px;padding:2px 8px;border-radius:999px;background:${roleBadgeColor}22;color:${roleBadgeColor};border:1px solid ${roleBadgeColor}55;">${u.role || 'user'}</span>
+              ${hkmLinked ? '<span style="font-size:10px;padding:1px 6px;border-radius:4px;background:rgba(16,185,129,.12);color:#059669;">✓ VisuMat verknüpft</span>' : '<span style="font-size:10px;padding:1px 6px;border-radius:4px;background:rgba(245,158,11,.12);color:#d97706;">⚠ VisuMat nicht verknüpft</span>'}
             </div>
             <div style="margin-top:4px;font-size:12px;color:var(--muted);">${u.email || ''}</div>
-            <div style="margin-top:4px;font-size:11px;color:var(--muted);">Mitarbeiter: ${memberLabel}</div>
             <div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
               <label class="label" style="margin:0;font-size:11px;">Rolle</label>
-              <select class="input-field" style="max-width:140px;${canManageUsers ? '' : 'opacity:.7;'}" ${canManageUsers ? '' : 'disabled'} onchange="updateUserRoleInRegistry('${u.uid}', this.value)">
-                <option value="user" ${u.role === 'user' ? 'selected' : ''}>User</option>
-                <option value="manager" ${u.role === 'manager' ? 'selected' : ''}>Manager</option>
-                ${canAssignAdmin ? `<option value="admin" ${u.role === 'admin' ? 'selected' : ''}>Admin</option>` : ''}
+              <select class="input-field" style="max-width:130px;${canManageUsers?'':'opacity:.7;'}" ${canManageUsers?'':'disabled'} onchange="updateUserRoleInRegistry('${u.uid}', this.value)">
+                <option value="user" ${u.role==='user'?'selected':''}>User</option>
+                <option value="manager" ${u.role==='manager'?'selected':''}>Manager</option>
+                ${canAssignAdmin?`<option value="admin" ${u.role==='admin'?'selected':''}>Admin</option>`:''}
               </select>
-              <button class="btn" style="padding:4px 10px;font-size:11px;" ${canManageUsers && u.email ? '' : 'disabled'} onclick='sendPasswordResetForUser(${JSON.stringify(u.email || "")})'>🔑 Passwort reset</button>
+              <label class="label" style="margin:0;font-size:11px;">Mitarbeiter</label>
+              <select id="memberSel_${u.uid}" class="input-field" style="flex:1;min-width:150px;${canManageUsers?'':'opacity:.7;'}" ${canManageUsers?'':'disabled'}>
+                <option value="">– nicht verknüpft –</option>
+                ${memberOpts}
+              </select>
+              <button class="btn primary" style="padding:4px 10px;font-size:11px;" ${canManageUsers?'':'disabled'} onclick="linkUserToMember('${u.uid}')">💾</button>
+              <button class="btn" style="padding:4px 10px;font-size:11px;" ${canManageUsers&&u.email?'':'disabled'} onclick='sendPasswordResetForUser(${JSON.stringify(u.email||"")})'>🔑</button>
             </div>
           </div>
         `;
       }).join('');
+      // Set select values after rendering
+      byTime.forEach(u => {
+        const sel = document.getElementById(`memberSel_${u.uid}`);
+        if (sel && u.memberId) sel.value = u.memberId;
+      });
     }
 
     async function sendPasswordResetForUser(email) {
@@ -7519,6 +7534,29 @@ www.livetour.ch`;
         showToast(`❌ Passwort-Reset fehlgeschlagen: ${map[code] || code}`);
         console.error('Password reset error:', e);
       }
+    }
+
+    async function linkUserToMember(uid) {
+      if (!hasPermission('user_manage')) return;
+      const sel = document.getElementById(`memberSel_${uid}`);
+      const memberId = sel?.value || null;
+      const acct = (state.userAccounts || []).find(u => u.uid === uid);
+      if (!acct) return;
+      acct.memberId = memberId;
+      acct.updatedAt = new Date().toISOString();
+      saveUserAccounts();
+      // Sync to HKM profile
+      if (typeof window.setHkmProfileMemberId === 'function') {
+        try {
+          await window.setHkmProfileMemberId(uid, memberId);
+          showToast('✅ Mitarbeiter-Verknüpfung gespeichert (inkl. VisuMat)');
+        } catch(e) {
+          showToast('✅ Gespeichert (VisuMat-Sync fehlgeschlagen: ' + (e?.message||e) + ')');
+        }
+      } else {
+        showToast('✅ Mitarbeiter-Verknüpfung gespeichert');
+      }
+      renderUserAccountsList();
     }
 
     async function createUserAccountFromSettings() {
@@ -7549,26 +7587,36 @@ www.livetour.ch`;
           company: state.settings.company || ''
         });
 
+        // Auto-create member if none selected
+        let resolvedMemberId = memberId;
+        if (!resolvedMemberId) {
+          const parts  = name.trim().split(/\s+/);
+          const vorname  = parts[0] || name;
+          const nachname = parts.slice(1).join(' ') || '';
+          const kuerzel  = ((vorname[0] || '') + (nachname[0] || vorname[1] || '')).toUpperCase() || 'XX';
+          const colors   = ['#3b82f6','#f59e0b','#10b981','#8b5cf6','#ef4444','#ec4899'];
+          const color    = colors[state.members.length % colors.length];
+          const newMember = { id: 'member_' + Date.now() + '_' + Math.random().toString(36).substr(2,4), vorname, nachname, kuerzel, color, email, createdAt: new Date().toISOString() };
+          state.members.push(newMember);
+          saveMembers();
+          resolvedMemberId = newMember.id;
+        }
+
+        // Ensure HKM profile has memberId
+        if (typeof window.setHkmProfileMemberId === 'function') {
+          window.setHkmProfileMemberId(result.uid, resolvedMemberId).catch(console.error);
+        }
+
         const existing = state.userAccounts.find(x => x.uid === result.uid);
         if (existing) {
-          existing.name = name;
-          existing.email = email;
-          existing.role = role;
-          existing.memberId = memberId;
-          existing.updatedAt = new Date().toISOString();
+          existing.name = name; existing.email = email; existing.role = role;
+          existing.memberId = resolvedMemberId; existing.updatedAt = new Date().toISOString();
         } else {
-          state.userAccounts.push({
-            uid: result.uid,
-            name,
-            email,
-            role,
-            memberId,
-            createdAt: new Date().toISOString(),
-            createdBy: currentUser?.uid || null
-          });
+          state.userAccounts.push({ uid: result.uid, name, email, role, memberId: resolvedMemberId, createdAt: new Date().toISOString(), createdBy: currentUser?.uid || null });
         }
         saveUserAccounts();
         renderUserAccountsList();
+        renderMembersList?.(); populateUserMemberSelect?.(); renderMemberSwitcher?.();
 
         const nameEl = document.getElementById('newUserName');
         const emailEl = document.getElementById('newUserEmail');

@@ -492,7 +492,20 @@ async function hkmEnsureProfile(uid, name, email) {
       createdAt:     new Date().toISOString()
     });
   }
+  // Sync memberId from userAccounts if not yet set on profile
+  const existing = snap.val();
+  if (!existing?.memberId) {
+    const account = (state.userAccounts || []).find(u => u.uid === uid);
+    if (account?.memberId) {
+      await set(ref(db, `hkm/profiles/${uid}/memberId`), account.memberId);
+    }
+  }
 }
+
+window.setHkmProfileMemberId = async (uid, memberId) => {
+  if (!currentUser) throw new Error('not-authenticated');
+  await set(ref(db, `hkm/profiles/${uid}/memberId`), memberId || null);
+};
 
 window.hkmCreateProfile = async (uid, name, email) => {
   if (!currentUser) throw new Error('not-authenticated');
